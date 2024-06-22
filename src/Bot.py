@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
-from StockAnalysis import year_cycle_graph, rsi_so_price, adx, macd
+from StockAnalysis import year_cycle_graph, rsi_so_price, adx, macd, price_bollinger
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -65,16 +65,20 @@ async def review(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
         return
 
-    # RSI/SO/Price chart
+    # wykres swiecowy ze wstegami Bollingera
+    chart = price_bollinger(data)
+    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart)
+
+    # RSI/SO/Cena
     values = rsi_so_price(data)
 
     stats = (f"*RSI:*\n\tAktualna wartość: {values[2]}\n\tŚrednia: {values[0]}\n\tOdchylenie: {values[1]}"
              f"\n\n*Oscylator stochastyczny:*\n\tAktualna wartość: {values[5]}\n\tŚrednia: {values[3]}"
              f"\n\tOdchylenie: {values[4]}")
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=stats, parse_mode=ParseMode.MARKDOWN)
     await context.bot.send_photo(chat_id=update.effective_chat.id, photo=values[6])
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=stats, parse_mode=ParseMode.MARKDOWN)
 
-    # year cycle chart
+    # cykle roczne
     if period in list(periods.keys())[6:]:
         chart = year_cycle_graph(data)
         await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart)

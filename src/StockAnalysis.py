@@ -1,6 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-from ta import trend, momentum
+from ta import trend, momentum, volatility
 from io import BytesIO
 import mplfinance as mpf
 
@@ -51,13 +51,10 @@ def rsi_so_price(data: pd.DataFrame) -> tuple:
     act_so = so.iloc[-1]
 
     # chart
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 8), sharex=True,
-                                        gridspec_kw={'height_ratios': [2, 1, 1]})
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
 
-    mpf.plot(data, type='candle', style='charles', ax=ax1, show_nontrading=True, ylabel="Cena",
-             update_width_config=dict(candle_linewidth=0.3, volume_linewidth=0.3))
-    ax1.yaxis.set_label_position("left")
-    ax1.yaxis.tick_left()
+    ax1.plot(data['Close'], color="red")
+    ax1.set_ylabel('Cena')
 
     ax2.plot(rsi, color="orange", label="RSI")
     ax2.axhline(y=avg_rsi + std_rsi, color="orange")
@@ -114,9 +111,35 @@ def macd(data: pd.DataFrame) -> BytesIO:
     ax2.bar(macd_diff.index, macd_diff, color=colors, width=0.5)
     ax2.set_ylabel("Różnica MACD-Linia sygnału")
 
+    plt.tight_layout()
     buffer = BytesIO()
     plt.savefig(buffer, format='png')
     buffer.seek(0)
     plt.clf()
 
     return buffer
+
+
+def price_bollinger(data: pd.DataFrame) -> BytesIO:
+    bollinger = volatility.BollingerBands(close=data['Close'], window=20, window_dev=2)
+    b_avg = bollinger.bollinger_mavg()
+    b_hb = bollinger.bollinger_hband()
+    b_lb = bollinger.bollinger_lband()
+
+    # Plot candlestick chart with Bollinger Bands
+    mc = mpf.make_marketcolors(up='g', down='r', edge='inherit', volume='inherit')
+    s = mpf.make_mpf_style(marketcolors=mc)
+
+    buffer = BytesIO()
+
+    mpf.plot(data, type='candle', volume=True, style=s, show_nontrading=False, savefig=buffer,
+             title="Wykres świecowy ze wstęgami Bollingera", ylabel='Cena', ylabel_lower='Wolumen', figratio=(10, 8),
+             figscale=1.5, tight_layout=True, addplot=[mpf.make_addplot(b_avg, color='blue', alpha=0.5),
+                                                       mpf.make_addplot(b_hb, color='orange', alpha=0.6),
+                                                       mpf.make_addplot(b_lb, color='orange', alpha=0.6)])
+
+    buffer.seek(0)
+    plt.clf()
+
+    return buffer
+
