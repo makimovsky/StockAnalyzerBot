@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
-from StockAnalysis import year_cycle_graph, rsi_so_price, adx
+from StockAnalysis import year_cycle_graph, rsi_so_price, adx, macd
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -38,20 +38,23 @@ async def review(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         interval = update.message.text.split(" ")[3]
     except IndexError:
-        interval = "1d"
+        interval = periods.get(period)[0]
 
     if period not in periods:
-        err_msg = f"Błąd - dostępne okresy czasu: {str(list(periods.keys())).replace("'", "")}"
+        period_keys = str(list(periods.keys())).replace("'", "")
+        err_msg = f"Błąd - dostępne okresy czasu: {period_keys}"
         await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
         return
 
     if interval not in intervals:
-        err_msg = f"Błąd - dostępne interwały: {str(intervals).replace("'", "")}"
+        interval_keys = str(intervals).replace("'", "")
+        err_msg = f"Błąd - dostępne interwały: {interval_keys}"
         await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
         return
 
     if interval not in periods.get(period):
-        err_msg = f"Błąd - dostępne interwały dla okresu {period}: {str(periods.get(period)).replace("'", "")}"
+        period_intervals = str(periods.get(period)).replace("'", "")
+        err_msg = f"Błąd - dostępne interwały dla okresu {period}: {period_intervals}"
         await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
         return
 
@@ -69,34 +72,39 @@ async def review(update: Update, context: ContextTypes.DEFAULT_TYPE):
              f"\n\n*Oscylator stochastyczny:*\n\tAktualna wartość: {values[5]}\n\tŚrednia: {values[3]}"
              f"\n\tOdchylenie: {values[4]}")
     await context.bot.send_message(chat_id=update.effective_chat.id, text=stats, parse_mode=ParseMode.MARKDOWN)
-    await context.bot.send_photo(chat_id=update.effective_chat.id, photo="../resources/rop.png")
+    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=values[6])
 
     # year cycle chart
     if period in list(periods.keys())[6:]:
-        year_cycle_graph(data)
-        await context.bot.send_photo(chat_id=update.effective_chat.id, photo="../resources/ycycle.png")
+        chart = year_cycle_graph(data)
+        await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart)
 
     # ADX
-    adx(data)
-    await context.bot.send_photo(chat_id=update.effective_chat.id, photo="../resources/adx.png")
+    chart = adx(data)
+    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart)
+
+    # MACD
+    chart = macd(data)
+    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart)
 
 
-load_dotenv()
-token = os.environ["API_TOKEN"]
+if __name__ == '__main__':
+    load_dotenv()
+    token = os.environ["API_TOKEN"]
 
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
+    logging.basicConfig(
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        level=logging.INFO
+    )
 
-application = ApplicationBuilder().token(token).build()
+    application = ApplicationBuilder().token(token).build()
 
-start_handler = CommandHandler('start', start)
-review_handler = CommandHandler('review', review)
-r_handler = CommandHandler('r', review)
+    start_handler = CommandHandler('start', start)
+    review_handler = CommandHandler('review', review)
+    r_handler = CommandHandler('r', review)
 
-application.add_handler(start_handler)
-application.add_handler(review_handler)
-application.add_handler(r_handler)
+    application.add_handler(start_handler)
+    application.add_handler(review_handler)
+    application.add_handler(r_handler)
 
-application.run_polling()
+    application.run_polling()
