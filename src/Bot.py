@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
-from StockAnalysis import year_cycle_graph, rsi_so_price, adx, macd, price_bollinger
+from StockAnalysis import year_cycle_graph, rsi_so_price, adx, macd, price_bollinger, moving_averages
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -67,7 +67,13 @@ async def review(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # wykres swiecowy ze wstegami Bollingera
     chart = price_bollinger(data)
-    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart)
+    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart,
+                                 caption='Wykres świecowy cen + wstęgi Bollingera')
+
+    # srednie kroczace
+    chart = moving_averages(data)
+    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart,
+                                 caption='Wykres średnich kroczących')
 
     # RSI/SO/Cena
     values = rsi_so_price(data)
@@ -75,21 +81,22 @@ async def review(update: Update, context: ContextTypes.DEFAULT_TYPE):
     stats = (f"*RSI:*\n\tAktualna wartość: {values[2]}\n\tŚrednia: {values[0]}\n\tOdchylenie: {values[1]}"
              f"\n\n*Oscylator stochastyczny:*\n\tAktualna wartość: {values[5]}\n\tŚrednia: {values[3]}"
              f"\n\tOdchylenie: {values[4]}")
-    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=values[6])
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=stats, parse_mode=ParseMode.MARKDOWN)
+    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=values[6], caption=stats,
+                                 parse_mode=ParseMode.MARKDOWN)
 
     # cykle roczne
     if period in list(periods.keys())[6:]:
         chart = year_cycle_graph(data)
-        await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart)
+        await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart,
+                                     caption='Wykres możliwych cykli rocznych')
 
     # ADX
     chart = adx(data)
-    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart)
+    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart, caption='ADX - wskaźnik trendu')
 
     # MACD
     chart = macd(data)
-    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart)
+    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart, caption='Wskaźnik MACD')
 
 
 if __name__ == '__main__':
@@ -104,11 +111,9 @@ if __name__ == '__main__':
     application = ApplicationBuilder().token(token).build()
 
     start_handler = CommandHandler('start', start)
-    review_handler = CommandHandler('review', review)
-    r_handler = CommandHandler('r', review)
+    review_handler = CommandHandler(['review', 'r'], review)
 
     application.add_handler(start_handler)
     application.add_handler(review_handler)
-    application.add_handler(r_handler)
 
     application.run_polling()

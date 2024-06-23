@@ -5,8 +5,7 @@ from io import BytesIO
 import mplfinance as mpf
 
 
-def save_fig(title="") -> BytesIO:
-    plt.title(title)
+def save_fig() -> BytesIO:
     plt.legend()
     plt.xlabel('')
     plt.ylabel('')
@@ -27,24 +26,23 @@ def year_cycle_graph(data: pd.DataFrame) -> BytesIO:
         data_year.plot(label=year)
     plt.xticks([])
     plt.yticks([])
-    chart = save_fig("Wykres cykli rocznych")
+    chart = save_fig()
 
     return chart
 
 
 def rsi_so_price(data: pd.DataFrame) -> tuple:
     # RSI
-    rsi = momentum.rsi(close=data["Close"], window=14)
-    rsi.dropna(inplace=True)
+    rsi = momentum.rsi(close=data["Close"], window=14).dropna()
 
     avg_rsi = rsi.mean()
     std_rsi = rsi.std()
     act_rsi = rsi.iloc[-1]
 
     # Stochastics Oscilator
-    so = momentum.stoch(high=data['High'], low=data['Low'], close=data['Close'], window=14, smooth_window=3)
-    so_signal = momentum.stoch_signal(high=data['High'], low=data['Low'], close=data['Close'], window=14, smooth_window=3)
-    so.dropna(inplace=True)
+    so = momentum.stoch(high=data['High'], low=data['Low'], close=data['Close'], window=14, smooth_window=3).dropna()
+    so_signal = momentum.stoch_signal(high=data['High'], low=data['Low'], close=data['Close'], window=14,
+                                      smooth_window=3).dropna()
 
     avg_so = so.mean()
     std_so = so.std()
@@ -53,8 +51,9 @@ def rsi_so_price(data: pd.DataFrame) -> tuple:
     # chart
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
 
-    ax1.plot(data['Close'], color="red")
+    ax1.plot(data['Close'].loc[rsi.index[0]:rsi.index[-1]], color="red", label='Cena')
     ax1.set_ylabel('Cena')
+    ax1.legend()
 
     ax2.plot(rsi, color="orange", label="RSI")
     ax2.axhline(y=avg_rsi + std_rsi, color="orange")
@@ -90,7 +89,7 @@ def adx(data: pd.DataFrame) -> BytesIO:
     plt.axhline(y=20, color="green", label="Linia przebicia")
     plt.axhline(y=40, color="red", linestyle="--", label="Linia uwagi")
 
-    chart = save_fig("Wskaźnik trendu - ADX")
+    chart = save_fig()
 
     return chart
 
@@ -122,9 +121,9 @@ def macd(data: pd.DataFrame) -> BytesIO:
 
 def price_bollinger(data: pd.DataFrame) -> BytesIO:
     bollinger = volatility.BollingerBands(close=data['Close'], window=20, window_dev=2)
-    b_avg = bollinger.bollinger_mavg()
-    b_hb = bollinger.bollinger_hband()
-    b_lb = bollinger.bollinger_lband()
+    b_avg = bollinger.bollinger_mavg().dropna()
+    b_hb = bollinger.bollinger_hband().dropna()
+    b_lb = bollinger.bollinger_lband().dropna()
 
     # Plot candlestick chart with Bollinger Bands
     mc = mpf.make_marketcolors(up='g', down='r', edge='inherit', volume='inherit')
@@ -132,14 +131,38 @@ def price_bollinger(data: pd.DataFrame) -> BytesIO:
 
     buffer = BytesIO()
 
-    mpf.plot(data, type='candle', volume=True, style=s, show_nontrading=False, savefig=buffer,
-             title="Wykres świecowy ze wstęgami Bollingera", ylabel='Cena', ylabel_lower='Wolumen', figratio=(10, 8),
-             figscale=1.5, tight_layout=True, addplot=[mpf.make_addplot(b_avg, color='blue', alpha=0.5),
-                                                       mpf.make_addplot(b_hb, color='orange', alpha=0.6),
-                                                       mpf.make_addplot(b_lb, color='orange', alpha=0.6)])
+    mpf.plot(data.loc[b_avg.index[0]:b_avg.index[-1]], type='candle', volume=True, style=s, show_nontrading=False, savefig=buffer, ylabel='Cena',
+             ylabel_lower='Wolumen', figratio=(10, 8), figscale=1.5, tight_layout=True, yticks=[],
+             addplot=[mpf.make_addplot(b_avg, color='blue', alpha=0.5),
+                      mpf.make_addplot(b_hb, color='orange', alpha=0.6),
+                      mpf.make_addplot(b_lb, color='orange', alpha=0.6)])
 
     buffer.seek(0)
     plt.clf()
 
     return buffer
 
+
+def moving_averages(data: pd.DataFrame) -> BytesIO:
+    sma10 = trend.sma_indicator(data['Close'], window=10).dropna()
+    sma50 = trend.sma_indicator(data['Close'], window=50).dropna()
+    sma_diff = sma10 - sma50
+
+    # chart
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+
+    ax1.plot(data['Close'].loc[sma50.index[0]:sma50.index[-1]], color="red", label='Cena')
+    ax1.plot(sma10.loc[sma50.index[0]:sma50.index[-1]], color='orange', alpha=0.7, label='10-okresów')
+    ax1.plot(sma50, color='blue', alpha=0.7, label='50-okresów')
+    ax1.legend()
+
+    colors = ['green' if val >= 0 else 'red' for val in sma_diff]
+    ax2.bar(sma_diff.index, sma_diff, color=colors, width=0.5)
+
+    plt.tight_layout()
+    buffer = BytesIO()
+    plt.savefig(buffer, format='png')
+    buffer.seek(0)
+    plt.clf()
+
+    return buffer
