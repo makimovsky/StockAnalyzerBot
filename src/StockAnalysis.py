@@ -106,8 +106,9 @@ def macd(data: pd.DataFrame) -> BytesIO:
     ax1.set_ylabel("MACD")
     ax1.legend()
 
+    bar_width = (macd_diff.index[1] - macd_diff.index[0]) * 0.7
     colors = ['green' if val >= 0 else 'red' for val in macd_diff]
-    ax2.bar(macd_diff.index, macd_diff, color=colors, width=0.5)
+    ax2.bar(macd_diff.index, macd_diff, color=colors, width=bar_width)
     ax2.set_ylabel("Różnica MACD-Linia sygnału")
 
     plt.tight_layout()
@@ -125,7 +126,6 @@ def price_bollinger(data: pd.DataFrame) -> BytesIO:
     b_hb = bollinger.bollinger_hband().dropna()
     b_lb = bollinger.bollinger_lband().dropna()
 
-    # Plot candlestick chart with Bollinger Bands
     mc = mpf.make_marketcolors(up='g', down='r', edge='inherit', volume='inherit')
     s = mpf.make_mpf_style(marketcolors=mc)
 
@@ -156,8 +156,9 @@ def moving_averages(data: pd.DataFrame) -> BytesIO:
     ax1.plot(sma50, color='blue', alpha=0.7, label='50-okresów')
     ax1.legend()
 
+    bar_width = (sma_diff.index[1] - sma_diff.index[0]) * 0.7
     colors = ['green' if val >= 0 else 'red' for val in sma_diff]
-    ax2.bar(sma_diff.index, sma_diff, color=colors, width=0.5)
+    ax2.bar(sma_diff.index, sma_diff, color=colors, width=bar_width)
 
     plt.tight_layout()
     buffer = BytesIO()

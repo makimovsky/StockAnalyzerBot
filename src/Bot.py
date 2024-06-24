@@ -17,7 +17,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def review(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    intervals = ['1m', '2m', '5m', '15m', '30m', '60m', '90m', '1d', '5d', '1wk', '1mo', '3mo']
+    intervals = ['1m', '2m', '5m', '15m', '30m', '60m', '90m', '1d', '5d', '1wk', '1mo']
 
     periods = {
         '1d': intervals[0:3],
@@ -26,7 +26,7 @@ async def review(update: Update, context: ContextTypes.DEFAULT_TYPE):
         '6mo': intervals[7:8],
         '1y': intervals[7:10],
         '2y': intervals[7:10],
-        '5y': intervals[7:11],
+        '5y': intervals[7:],
         '10y': intervals[7:],
     }
 
