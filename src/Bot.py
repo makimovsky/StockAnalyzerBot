@@ -30,7 +30,12 @@ async def review(update: Update, context: ContextTypes.DEFAULT_TYPE):
         '10y': intervals[7:],
     }
 
-    symbol = update.message.text.split(" ")[1]
+    try:
+        symbol = update.message.text.split(" ")[1]
+    except IndexError:
+        err_msg = f"Błąd - podaj symbol. Aby uzyskać więcej pomocy wpisz /help"
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
+        return
     try:
         period = update.message.text.split(" ")[2]
     except IndexError:
@@ -61,7 +66,7 @@ async def review(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = yf.download(symbol, period=period, interval=interval)
 
     if data.empty:
-        err_msg = f"Błąd - Brak danych o *{symbol}*"
+        err_msg = f"Błąd - Brak danych o *{symbol}*. Upewnij się, że podajesz istniejący symbol giełdowy."
         await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
         return
 
@@ -99,6 +104,24 @@ async def review(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart, caption='Wskaźnik MACD')
 
 
+async def help_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    help_text = ('*Dostępne komendy:*\n */review (/r) [symbol] [okres] [interwał]*\n\n  *Opis:*\n   Komenda służy do '
+                 'wyświetlania danych\n   o podanym symbolu w podanym\n   okresie z podanym interwałem.\n\n  '
+                 '*Parametry:*\n   _symbol_: Symbol giełdowy\n   _okres_: Okres danych\n   _interwał_: Interwał '
+                 'danych\n\n  *Przykładowe użycie:*\n   /r aapl 5y 1wk - wyświetlenie danych o\n   AAPL z ostatnich 5 '
+                 'lat z jednostką osi\n   czasu 1 tydzień.\n\n\n */ihelp (/ih)*\n\n  *Opis:*\n   Komenda służy do '
+                 'wyświetlenia\n   pomocy dotyczącej interpretacji\n   wysyłanych przez bota wykresów i\n   danych.'
+                 '\n\n\n */help (/h)*\n\n  *Opis:*\n   Komenda służy do wyświetlenia\n   dostępnych komend.')
+
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=help_text, parse_mode=ParseMode.MARKDOWN)
+
+
+async def ihelp_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    help_text = 'TBD'
+
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=help_text, parse_mode=ParseMode.MARKDOWN)
+
+
 if __name__ == '__main__':
     load_dotenv()
     token = os.environ["API_TOKEN"]
@@ -112,8 +135,12 @@ if __name__ == '__main__':
 
     start_handler = CommandHandler('start', start)
     review_handler = CommandHandler(['review', 'r'], review)
+    help_handler = CommandHandler(['help', 'h'], help_func)
+    ihelp_handler = CommandHandler(['ihelp', 'ih'], ihelp_func)
 
     application.add_handler(start_handler)
     application.add_handler(review_handler)
+    application.add_handler(help_handler)
+    application.add_handler(ihelp_handler)
 
     application.run_polling()
