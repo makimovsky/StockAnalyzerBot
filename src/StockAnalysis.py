@@ -131,8 +131,8 @@ def price_bollinger(data: pd.DataFrame) -> BytesIO:
 
     buffer = BytesIO()
 
-    mpf.plot(data.loc[b_avg.index[0]:b_avg.index[-1]], type='candle', volume=True, style=s, show_nontrading=False, savefig=buffer, ylabel='Cena',
-             ylabel_lower='Wolumen', figratio=(10, 8), figscale=1.5, tight_layout=True,
+    mpf.plot(data.loc[b_avg.index[0]:b_avg.index[-1]], type='candle', volume=True, style=s, show_nontrading=False,
+             savefig=buffer, ylabel='Cena', ylabel_lower='Wolumen', figratio=(10, 8), figscale=1.5, tight_layout=True,
              addplot=[mpf.make_addplot(b_avg, color='blue', alpha=0.5),
                       mpf.make_addplot(b_hb, color='orange', alpha=0.6),
                       mpf.make_addplot(b_lb, color='orange', alpha=0.6)])

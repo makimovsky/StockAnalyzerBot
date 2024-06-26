@@ -11,7 +11,8 @@ from StockAnalysis import year_cycle_graph, rsi_so_price, adx, macd, price_bolli
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = ("*Cześć!*\nJestem botem, który pomaga analizować rynki finansowe.\n\n*Jak działam?*\nPobieram dane "
-            "z Yahoo Finance i na ich podstawie wyświetlam wykresy oraz wartości wskaźników.")
+            "z Yahoo Finance i na ich podstawie wyświetlam wykresy oraz wartości wskaźników. Wpisz /help, aby uzyskać "
+            "więcej informacji.")
 
     await context.bot.send_message(chat_id=update.effective_chat.id, text=text, parse_mode=ParseMode.MARKDOWN)
 
@@ -33,7 +34,7 @@ async def review(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         symbol = update.message.text.split(" ")[1]
     except IndexError:
-        err_msg = f"Błąd - podaj symbol. Aby uzyskać więcej pomocy wpisz /help"
+        err_msg = f"Błąd - podaj symbol. Aby uzyskać więcej pomocy wpisz /help."
         await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
         return
     try:
@@ -109,17 +110,77 @@ async def help_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
                  'wyświetlania danych\n   o podanym symbolu w podanym\n   okresie z podanym interwałem.\n\n  '
                  '*Parametry:*\n   _symbol_: Symbol giełdowy\n   _okres_: Okres danych\n   _interwał_: Interwał '
                  'danych\n\n  *Przykładowe użycie:*\n   /r aapl 5y 1wk - wyświetlenie danych o\n   AAPL z ostatnich 5 '
-                 'lat z jednostką osi\n   czasu 1 tydzień.\n\n\n */ihelp (/ih)*\n\n  *Opis:*\n   Komenda służy do '
-                 'wyświetlenia\n   pomocy dotyczącej interpretacji\n   wysyłanych przez bota wykresów i\n   danych.'
-                 '\n\n\n */help (/h)*\n\n  *Opis:*\n   Komenda służy do wyświetlenia\n   dostępnych komend.')
+                 'lat z jednostką osi\n   czasu 1 tydzień.\n\n\n */ihelp (/ih) [bollinger/średnie/rsi/\n               '
+                 '         /os/adx/macd]*\n\n  *Opis:*\n   Komenda służy do wyświetlenia\n   pomocy dotyczącej '
+                 'interpretacji\n   wysyłanych przez bota wykresów i\n   danych.\n\n\n */help (/h)*\n\n  *Opis:*\n   '
+                 'Komenda służy do wyświetlenia\n   dostępnych komend.')
 
     await context.bot.send_message(chat_id=update.effective_chat.id, text=help_text, parse_mode=ParseMode.MARKDOWN)
 
 
 async def ihelp_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    help_text = 'TBD'
+    bollinger_help = ('*Wstęgi Bollingera* - odległość górnej wstęgi od dolnej jest miarą zmienności rynku. Gdy '
+                      'zmienność rynku jest duża, wówczas dobrą strategią jest sprzedawanie przy górnej wstędze, a '
+                      'kupowanie przy dolnej. Wąska wstęga oznacza spokojny rynek w stanie konsolidacji, a szeroka - '
+                      'rynek aktywny.')
 
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=help_text, parse_mode=ParseMode.MARKDOWN)
+    ma_help = ('*Średnie kroczące* - sygnał kupna pojawia się, gdy krótsza średnia przecina od dołu dłuższą średnią,'
+               'natomiast sygnał sprzedaży - gdy krótsza średnia przecina dłuższą od góry. Czytelniejszym wykresem jest'
+               ' wykres słupkowy, na którym łatwiej można zaobserwować odległość średnich od siebie.')
+
+    rsi_help = ('*RSI* - wskaźnik siły względnej. RSI daje sygnały dwóch rodzajów. Są to dywergencje między RSI a ceną '
+                'oraz poziomy wykupienia i wyprzedania RSI. Dywergencje byka lub niedźwiedzia pomiędzy RSI a cenami '
+                'dają najsilniejsze sygnały kupna i sprzedaży. Pojawiają się, gdy RSI nie potwierdza nowego dołka lub '
+                'nowego szczytu (cena osiąga nowy dołek lub szczyt, a RSI nie). Poziomy wykupienia i wyprzedania RSI '
+                'dają informacje o tym, czy rynek jest wykupiony lub wyprzedany. Jeżeli RSI jest ponad linią wykupienia'
+                ' oznacza to, że za niedługo mogą nastąpić spadki (korekta). Wyprzedanie jest odwrotną sytuacją. '
+                'Domyślnie za poziom wykupienia uznaje się poziom >70, a za poziom wyprzedania <30, jednak bot wykreśla'
+                ' linie wykupienia i wyprzedania na poziomach średnia wartość RSI +- odchylenie RSI z podanego okresu '
+                'tak, aby dostosować poziomy do danej spółki.')
+
+    so_help = ('*Oscylator stochastyczny* - ocenia impet rynku, bada relacje pomiędzy każdą ceną zamknięcia i ostatnim '
+               'zakresem wahań cen. Przecięcia linii sygnału z linią oscylatora w obszarach wykupienia lub wyprzedania '
+               'są sygnałami kupna lub sprzedaży. Warto również łączyć ten oscylator z RSI.')
+
+    adx_help = ('*ADX* - wskaźnik trendu. Rosnąca linia ADX oznacza, że na rynku dominuje wyraźny trend. Można przyjąć,'
+                ' że wybicie ponad poziom 20 jest potwierdzeniem rozpoczęcia trendu, a wybicie ponad poziom 40 może '
+                'oznaczać zbliżający się koniec trendu lub korektę.')
+
+    macd_help = ('*MACD* - sygnał pojawia się, gdy szybsza linia MACD przecina wolniejszą linie sygnału. Przecięcie '
+                 'MACD od dołu jest sygnałem kupna, a od góry - sygnałem sprzedaży. Czytelniejszym wykresem jest wykres'
+                 ' słupkowy, na którym łatwiej można zaobserwować odległość linii od siebie.')
+
+    ihelp_text = f'{bollinger_help}\n\n{ma_help}\n\n{rsi_help}\n\n{so_help}\n\n{adx_help}\n\n{macd_help}'
+
+    try:
+        help_w = update.message.text.split(" ")[1]
+    except IndexError:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=ihelp_text, parse_mode=ParseMode.MARKDOWN)
+        return
+
+    if help_w == 'bollinger':
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=bollinger_help,
+                                       parse_mode=ParseMode.MARKDOWN)
+        return
+    elif help_w == 'średnie':
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=ma_help, parse_mode=ParseMode.MARKDOWN)
+        return
+    elif help_w == 'rsi':
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=rsi_help, parse_mode=ParseMode.MARKDOWN)
+        return
+    elif help_w == 'os':
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=so_help, parse_mode=ParseMode.MARKDOWN)
+        return
+    elif help_w == 'adx':
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=adx_help, parse_mode=ParseMode.MARKDOWN)
+        return
+    elif help_w == 'macd':
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=macd_help, parse_mode=ParseMode.MARKDOWN)
+        return
+    else:
+        err_msg = f'Błąd - brak pomocy dla *{help_w}*. Aby uzyskać więcej pomocy wpisz /help.'
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
+        return
 
 
 if __name__ == '__main__':
