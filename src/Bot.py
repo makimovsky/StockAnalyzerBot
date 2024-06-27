@@ -1,11 +1,12 @@
 import logging
 import os
 import yfinance as yf
+import yaml
 
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.constants import ParseMode
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
 from StockAnalysis import year_cycle_graph, rsi_so_price, adx, macd, price_bollinger, moving_averages
 
 
@@ -16,8 +17,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_message(chat_id=update.effective_chat.id, text=text, parse_mode=ParseMode.MARKDOWN)
 
+    return
+
 
 async def review(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global mode
     intervals = ['1m', '2m', '5m', '15m', '30m', '60m', '90m', '1d', '5d', '1wk', '1mo']
 
     periods = {
@@ -72,17 +76,17 @@ async def review(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # wykres swiecowy ze wstegami Bollingera
-    chart = price_bollinger(data)
+    chart = price_bollinger(data, mode)
     await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart,
                                  caption='Wykres świecowy cen + wstęgi Bollingera')
 
     # srednie kroczace
-    chart = moving_averages(data)
+    chart = moving_averages(data, mode)
     await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart,
                                  caption='Wykres średnich kroczących')
 
     # RSI/SO/Cena
-    values = rsi_so_price(data)
+    values = rsi_so_price(data, mode)
 
     stats = (f"*RSI:*\n\tAktualna wartość: {values[2]}\n\tŚrednia: {values[0]}\n\tOdchylenie: {values[1]}"
              f"\n\n*Oscylator stochastyczny:*\n\tAktualna wartość: {values[5]}\n\tŚrednia: {values[3]}"
@@ -92,17 +96,19 @@ async def review(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # cykle roczne
     if period in list(periods.keys())[6:]:
-        chart = year_cycle_graph(data)
+        chart = year_cycle_graph(data, mode)
         await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart,
                                      caption='Wykres możliwych cykli rocznych')
 
     # ADX
-    chart = adx(data)
+    chart = adx(data, mode)
     await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart, caption='ADX - wskaźnik trendu')
 
     # MACD
-    chart = macd(data)
+    chart = macd(data, mode)
     await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart, caption='Wskaźnik MACD')
+
+    return
 
 
 async def help_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -113,7 +119,8 @@ async def help_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
                  'lat z jednostką osi\n   czasu 1 tydzień.\n\n\n */ihelp (/ih) [bollinger/średnie/rsi/\n               '
                  '         /os/adx/macd]*\n\n  *Opis:*\n   Komenda służy do wyświetlenia\n   pomocy dotyczącej '
                  'interpretacji\n   wysyłanych przez bota wykresów i\n   danych.\n\n\n */help (/h)*\n\n  *Opis:*\n   '
-                 'Komenda służy do wyświetlenia\n   dostępnych komend.')
+                 'Komenda służy do wyświetlenia\n   dostępnych komend.\n\n\n */mode (/m) [light/dark]*\n\n  *Opis:*'
+                 '\n   Komenda służy do zmiany motywu\n   wyświetlanych wykresów.')
 
     await context.bot.send_message(chat_id=update.effective_chat.id, text=help_text, parse_mode=ParseMode.MARKDOWN)
 
@@ -161,26 +168,48 @@ async def ihelp_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if help_w == 'bollinger':
         await context.bot.send_message(chat_id=update.effective_chat.id, text=bollinger_help,
                                        parse_mode=ParseMode.MARKDOWN)
-        return
     elif help_w == 'średnie':
         await context.bot.send_message(chat_id=update.effective_chat.id, text=ma_help, parse_mode=ParseMode.MARKDOWN)
-        return
     elif help_w == 'rsi':
         await context.bot.send_message(chat_id=update.effective_chat.id, text=rsi_help, parse_mode=ParseMode.MARKDOWN)
-        return
     elif help_w == 'os':
         await context.bot.send_message(chat_id=update.effective_chat.id, text=so_help, parse_mode=ParseMode.MARKDOWN)
-        return
     elif help_w == 'adx':
         await context.bot.send_message(chat_id=update.effective_chat.id, text=adx_help, parse_mode=ParseMode.MARKDOWN)
-        return
     elif help_w == 'macd':
         await context.bot.send_message(chat_id=update.effective_chat.id, text=macd_help, parse_mode=ParseMode.MARKDOWN)
-        return
     else:
         err_msg = f'Błąd - brak pomocy dla *{help_w}*. Aby uzyskać więcej pomocy wpisz /help.'
         await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
+
+    return
+
+
+async def mode_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global modes, mode
+    try:
+        desired_mode = update.message.text.split(" ")[1]
+    except IndexError:
+        err_msg = 'Błąd - podaj motyw. Aby uzyskać więcej pomocy wpisz /help.'
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
         return
+
+    if desired_mode in list(modes.keys()):
+        mode = modes[desired_mode]
+        msg = f'Pomyślnie zmieniono motyw na *{desired_mode}*'
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode=ParseMode.MARKDOWN)
+    else:
+        err_msg = f'Błąd - brak motywu o nazwie *{desired_mode}*. Aby uzyskać więcej pomocy wpisz /help.'
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
+
+    return
+
+
+async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    err_msg = 'Błąd. Aby uzyskać więcej pomocy wpisz \n/help.'
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
+
+    return
 
 
 if __name__ == '__main__':
@@ -192,16 +221,25 @@ if __name__ == '__main__':
         level=logging.INFO
     )
 
+    with open('modes.yml', 'r') as file:
+        modes = yaml.safe_load(file)
+
+    mode = modes['dark']
+
     application = ApplicationBuilder().token(token).build()
 
     start_handler = CommandHandler('start', start)
     review_handler = CommandHandler(['review', 'r'], review)
     help_handler = CommandHandler(['help', 'h'], help_func)
     ihelp_handler = CommandHandler(['ihelp', 'ih'], ihelp_func)
+    mode_handler = CommandHandler(['mode', 'm'], mode_func)
+    unknown_handler = MessageHandler(filters.COMMAND, unknown)
 
     application.add_handler(start_handler)
     application.add_handler(review_handler)
     application.add_handler(help_handler)
     application.add_handler(ihelp_handler)
+    application.add_handler(mode_handler)
+    application.add_handler(unknown_handler)
 
     application.run_polling()
