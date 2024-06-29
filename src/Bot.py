@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
-from StockAnalysis import year_cycle_graph, rsi_so_price, adx, macd, price_bollinger, moving_averages
+from StockAnalysis import year_cycle_graph, rsi_so_price, adx, macd, price_atr, moving_averages
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -22,17 +22,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def review(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global mode
-    intervals = ['1m', '2m', '5m', '15m', '30m', '60m', '90m', '1d', '5d', '1wk', '1mo']
+    intervals = ['1m', '2m', '5m', '15m', '30m', '60m', '90m', '1d', '1wk', '1mo']
 
     periods = {
         '1d': intervals[0:3],
-        '5d': intervals[0:6],
-        '1mo': intervals[3:8],
+        '5d': intervals[2:5],
+        '1mo': intervals[3:7],
         '6mo': intervals[7:8],
-        '1y': intervals[7:10],
-        '2y': intervals[7:10],
-        '5y': intervals[7:],
-        '10y': intervals[7:],
+        '1y': intervals[7:9],
+        '2y': intervals[7:9],
+        '5y': intervals[8:],
+        '10y': intervals[9:],
     }
 
     try:
@@ -75,10 +75,10 @@ async def review(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
         return
 
-    # wykres swiecowy ze wstegami Bollingera
-    chart = price_bollinger(data, mode)
+    # wykres slupkowy oraz kanały ATR
+    chart = price_atr(data, mode)
     await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart,
-                                 caption='Wykres świecowy cen + wstęgi Bollingera')
+                                 caption='Wykres słupkowy cen + kanały ATR')
 
     # srednie kroczace
     chart = moving_averages(data, mode)
@@ -116,20 +116,22 @@ async def help_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
                  'wyświetlania danych\n   o podanym symbolu w podanym\n   okresie z podanym interwałem.\n\n  '
                  '*Parametry:*\n   _symbol_: Symbol giełdowy\n   _okres_: Okres danych\n   _interwał_: Interwał '
                  'danych\n\n  *Przykładowe użycie:*\n   /r aapl 5y 1wk - wyświetlenie danych o\n   AAPL z ostatnich 5 '
-                 'lat z jednostką osi\n   czasu 1 tydzień.\n\n\n */ihelp (/ih) [bollinger/średnie/rsi/\n               '
-                 '         /os/adx/macd]*\n\n  *Opis:*\n   Komenda służy do wyświetlenia\n   pomocy dotyczącej '
+                 'lat z jednostką osi\n   czasu 1 tydzień.\n\n\n */ihelp (/ih) [atr/średnie/rsi/os/\n               '
+                 '         /adx/macd]*\n\n  *Opis:*\n   Komenda służy do wyświetlenia\n   pomocy dotyczącej '
                  'interpretacji\n   wysyłanych przez bota wykresów i\n   danych.\n\n\n */help (/h)*\n\n  *Opis:*\n   '
-                 'Komenda służy do wyświetlenia\n   dostępnych komend.\n\n\n */mode (/m) [light/dark]*\n\n  *Opis:*'
+                 'Komenda służy do wyświetlenia\n   dostępnych komend.\n\n\n */mode (/m) [light/dark/darkblue]*\n\n  *Opis:*'
                  '\n   Komenda służy do zmiany motywu\n   wyświetlanych wykresów.')
 
     await context.bot.send_message(chat_id=update.effective_chat.id, text=help_text, parse_mode=ParseMode.MARKDOWN)
 
 
 async def ihelp_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    bollinger_help = ('*Wstęgi Bollingera* - odległość górnej wstęgi od dolnej jest miarą zmienności rynku. Gdy '
-                      'zmienność rynku jest duża, wówczas dobrą strategią jest sprzedawanie przy górnej wstędze, a '
-                      'kupowanie przy dolnej. Wąska wstęga oznacza spokojny rynek w stanie konsolidacji, a szeroka - '
-                      'rynek aktywny.')
+    atr_help = ('*Wskaźnik ATR* - wkaźnik średniej rzeczywistej zmienności. Wskaźnik ten jest pomocny przy wyznaczaniu '
+                'poziomów docelowych oraz poziomów stop loss. Stop loss powinien znajdować się w oddaleniu od poziomu '
+                'wejścia przynajmniej o 1 ATR w dół. Po otwarciu transakcji, zyski można realizować przy poziomach '
+                '1, 2 lub 3 ATR w górę. Warto pamiętać jednak, że rynek znajdujący się w okolicach 3 ATR jest w dużym '
+                'stopniu wykupiony lub wyprzedany, więc z dużym prawdopodobieństwem można spodziewać się korekty lub '
+                'odwrócenia trendu.')
 
     ma_help = ('*Średnie kroczące* - sygnał kupna pojawia się, gdy krótsza średnia przecina od dołu dłuższą średnią,'
                'natomiast sygnał sprzedaży - gdy krótsza średnia przecina dłuższą od góry. Czytelniejszym wykresem jest'
@@ -150,14 +152,22 @@ async def ihelp_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
                'są sygnałami kupna lub sprzedaży. Warto również łączyć ten oscylator z RSI.')
 
     adx_help = ('*ADX* - wskaźnik trendu. Rosnąca linia ADX oznacza, że na rynku dominuje wyraźny trend. Można przyjąć,'
-                ' że wybicie ponad poziom 20 jest potwierdzeniem rozpoczęcia trendu, a wybicie ponad poziom 40 może '
-                'oznaczać zbliżający się koniec trendu lub korektę.')
+                ' że ADX znajdujący się poniżej dwóch linii +DI oraz -DI oznacza brak trendu. W momencie, gdy ADX '
+                'przebija jedną z linii kierunkowych, jest to sygnał rozpoczęcia nowego trendu. Trend ten jest '
+                'wzrostowy, jeżeli linia +DI znajduje się nad linią -DI lub spadkowy w odwrotnym przypadku. Jeżeli ADX '
+                'osiąga poziom powyżej obu linii kierunkowych, jest to oznaka, że za niedługo prawdopodobnie pojawi się'
+                ' korekta lub odwrócenie trendu.')
 
     macd_help = ('*MACD* - sygnał pojawia się, gdy szybsza linia MACD przecina wolniejszą linie sygnału. Przecięcie '
                  'MACD od dołu jest sygnałem kupna, a od góry - sygnałem sprzedaży. Czytelniejszym wykresem jest wykres'
-                 ' słupkowy, na którym łatwiej można zaobserwować odległość linii od siebie.')
+                 ' słupkowy, na którym łatwiej można zaobserwować odległość linii od siebie. Ważnym sygnałem dawanym '
+                 'przez MACD jest dywergencja między histogramem MACD, a ceną. Dywergencja występuje, jeżeli nowy dołek'
+                 ' lub szczyt cenowy nie jest potwierdzony przez nowy dołek lub szczyt histogramu MACD. Ważnym aspektem'
+                 ' jest to, że histogram MACD pomiędzy dwoma szczytami lub dołkami musi przeciąć linię 0. Oznacza to, '
+                 'że jeżeli ceny wyznaczyły nowy szczyt, a histogram nie, ale pomiędzy dwoma szczytami histogram nie '
+                 'przeszedł przez linię 0, to nie możemy mówić o dywergencji.')
 
-    ihelp_text = f'{bollinger_help}\n\n{ma_help}\n\n{rsi_help}\n\n{so_help}\n\n{adx_help}\n\n{macd_help}'
+    ihelp_text = f'{atr_help}\n\n{ma_help}\n\n{rsi_help}\n\n{so_help}\n\n{adx_help}\n\n{macd_help}'
 
     try:
         help_w = update.message.text.split(" ")[1]
@@ -165,9 +175,8 @@ async def ihelp_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=update.effective_chat.id, text=ihelp_text, parse_mode=ParseMode.MARKDOWN)
         return
 
-    if help_w == 'bollinger':
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=bollinger_help,
-                                       parse_mode=ParseMode.MARKDOWN)
+    if help_w == 'atr':
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=atr_help, parse_mode=ParseMode.MARKDOWN)
     elif help_w == 'średnie':
         await context.bot.send_message(chat_id=update.effective_chat.id, text=ma_help, parse_mode=ParseMode.MARKDOWN)
     elif help_w == 'rsi':
@@ -224,7 +233,7 @@ if __name__ == '__main__':
     with open('modes.yml', 'r') as file:
         modes = yaml.safe_load(file)
 
-    mode = modes['dark']
+    mode = modes['darkblue']
 
     application = ApplicationBuilder().token(token).build()
 

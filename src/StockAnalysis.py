@@ -146,7 +146,11 @@ def rsi_so_price(data: pd.DataFrame, mode: dict) -> tuple:
 
 def adx(data: pd.DataFrame, mode: dict) -> BytesIO:
     c_adx = trend.adx(high=data['High'], low=data['Low'], close=data['Close'], window=14)
+    dipos = trend.adx_pos(high=data['High'], low=data['Low'], close=data['Close'], window=14)
+    dineg = trend.adx_neg(high=data['High'], low=data['Low'], close=data['Close'], window=14)
     c_adx = c_adx[c_adx != 0.0]
+    dipos = dipos[dipos != 0.0]
+    dineg = dineg[dineg != 0.0]
 
     # chart
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -155,9 +159,8 @@ def adx(data: pd.DataFrame, mode: dict) -> BytesIO:
     ax.set_facecolor(mode['face'])
 
     c_adx.plot(ax=ax, label="ADX", color=mode['adx'])
-
-    plt.axhline(y=20, color=mode['adx20'], label="Linia przebicia")
-    plt.axhline(y=40, color=mode['adx40'], linestyle='--', label="Linia uwagi")
+    dipos.plot(ax=ax, label='+DI', color=mode['posdi'])
+    dineg.plot(ax=ax, label='-DI', color=mode['negdi'])
 
     ax.spines['top'].set_color(mode['edge'])
     ax.spines['bottom'].set_color(mode['edge'])
@@ -169,6 +172,9 @@ def adx(data: pd.DataFrame, mode: dict) -> BytesIO:
     ax.xaxis.label.set_color(mode['axes_label'])
     ax.title.set_color(mode['title'])
     ax.grid(color=mode['grid'], linestyle='--')
+    leg = ax.legend()
+    for text in leg.get_texts():
+        text.set_color(mode['text'])
 
     plt.tight_layout()
     buffer = BytesIO()
@@ -232,14 +238,13 @@ def macd(data: pd.DataFrame, mode: dict) -> BytesIO:
     return buffer
 
 
-def price_bollinger(data: pd.DataFrame, mode: dict) -> BytesIO:
-    bollinger = volatility.BollingerBands(close=data['Close'], window=20, window_dev=2)
-    b_avg = bollinger.bollinger_mavg().dropna()
-    b_hb = bollinger.bollinger_hband().dropna()
-    b_lb = bollinger.bollinger_lband().dropna()
+def price_atr(data: pd.DataFrame, mode: dict) -> BytesIO:
+    ema = trend.ema_indicator(close=data['Close'], window=22).dropna()
+    atr = volatility.average_true_range(high=data['High'], low=data['Low'], close=data['Close'], window=22)
+    atr = atr[atr != 0.0]
 
     mc = mpf.make_marketcolors(up=mode['mc_up'], down=mode['mc_down'], edge=mode['mc_edge'], volume=mode['mc_volume'],
-                               wick=mode['mc_wick'])
+                               wick=mode['mc_wick'], ohlc=mode['mc_ohlc'])
 
     s = mpf.make_mpf_style(
         marketcolors=mc,
@@ -254,11 +259,16 @@ def price_bollinger(data: pd.DataFrame, mode: dict) -> BytesIO:
 
     buffer = BytesIO()
 
-    mpf.plot(data.loc[b_avg.index[0]:b_avg.index[-1]], type='candle', volume=True, style=s, show_nontrading=False,
-             savefig=buffer, ylabel='Cena', ylabel_lower='Wolumen', figratio=(10, 8), figscale=1.5, tight_layout=True,
-             addplot=[mpf.make_addplot(b_avg, color=mode['bollinger'], alpha=0.5),
-                      mpf.make_addplot(b_hb, color=mode['bollinger_up'], alpha=0.6),
-                      mpf.make_addplot(b_lb, color=mode['bollinger_down'], alpha=0.6)])
+    mpf.plot(data.loc[ema.index[0]:ema.index[-1]], type='ohlc', volume=True, style=s, show_nontrading=False,
+             ylabel='Cena', ylabel_lower='Wolumen', figratio=(10, 8), figscale=1.5, tight_layout=True,
+             ylim=(data['Low'].min() - atr.max(), data['High'].max() + atr.max()), savefig=buffer,
+             addplot=[mpf.make_addplot(ema, color=mode['ema'], alpha=mode['alpha']),
+                      mpf.make_addplot(ema + atr, color=mode['atr1'], alpha=mode['alpha'], linestyle='--'),
+                      mpf.make_addplot(ema + 2 * atr, color=mode['atr2'], alpha=mode['alpha'], linestyle='dashdot'),
+                      mpf.make_addplot(ema + 3 * atr, color=mode['atr3'], alpha=mode['alpha']),
+                      mpf.make_addplot(ema - atr, color=mode['atr1'], alpha=mode['alpha'], linestyle='--'),
+                      mpf.make_addplot(ema - 2 * atr, color=mode['atr2'], alpha=mode['alpha'], linestyle='dashdot'),
+                      mpf.make_addplot(ema - 3 * atr, color=mode['atr3'], alpha=mode['alpha'])])
 
     buffer.seek(0)
     plt.clf()
@@ -267,9 +277,9 @@ def price_bollinger(data: pd.DataFrame, mode: dict) -> BytesIO:
 
 
 def moving_averages(data: pd.DataFrame, mode: dict) -> BytesIO:
-    sma10 = trend.sma_indicator(data['Close'], window=10).dropna()
-    sma50 = trend.sma_indicator(data['Close'], window=50).dropna()
-    sma_diff = sma10 - sma50
+    ema13 = trend.ema_indicator(data['Close'], window=13).dropna()
+    ema26 = trend.ema_indicator(data['Close'], window=26).dropna()
+    ema_diff = ema13 - ema26
 
     # chart
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
@@ -278,9 +288,9 @@ def moving_averages(data: pd.DataFrame, mode: dict) -> BytesIO:
     ax1.set_facecolor(mode['face'])
     ax2.set_facecolor(mode['face'])
 
-    ax1.plot(data['Close'].loc[sma50.index[0]:sma50.index[-1]], color=mode['price'], label='Cena')
-    ax1.plot(sma10.loc[sma50.index[0]:sma50.index[-1]], color=mode['sma10'], alpha=0.7, label='10-okresów')
-    ax1.plot(sma50, color=mode['sma50'], alpha=0.7, label='50-okresów')
+    ax1.plot(data['Close'].loc[ema26.index[0]:ema26.index[-1]], color=mode['price'], label='Cena')
+    ax1.plot(ema13.loc[ema26.index[0]:ema26.index[-1]], color=mode['ema13'], alpha=mode['alpha'], label='13-okresów')
+    ax1.plot(ema26, color=mode['ema26'], alpha=mode['alpha'], label='26-okresów')
     ax1.spines['top'].set_color(mode['edge'])
     ax1.spines['bottom'].set_color(mode['edge'])
     ax1.spines['left'].set_color(mode['edge'])
@@ -295,9 +305,9 @@ def moving_averages(data: pd.DataFrame, mode: dict) -> BytesIO:
     for text in leg.get_texts():
         text.set_color(mode['text'])
 
-    bar_width = (sma_diff.index[1] - sma_diff.index[0]) * 0.7
-    colors = [mode['mc_up'] if val >= 0 else mode['mc_down'] for val in sma_diff]
-    ax2.bar(sma_diff.index, sma_diff, color=colors, width=bar_width)
+    bar_width = (ema_diff.index[1] - ema_diff.index[0]) * 0.7
+    colors = [mode['mc_up'] if val >= 0 else mode['mc_down'] for val in ema_diff]
+    ax2.bar(ema_diff.index, ema_diff, color=colors, width=bar_width)
     ax2.spines['top'].set_color(mode['edge'])
     ax2.spines['bottom'].set_color(mode['edge'])
     ax2.spines['left'].set_color(mode['edge'])
