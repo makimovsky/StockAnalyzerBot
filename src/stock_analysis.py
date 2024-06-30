@@ -5,19 +5,6 @@ from io import BytesIO
 import mplfinance as mpf
 
 
-def save_fig() -> BytesIO:
-    plt.legend()
-    plt.xlabel('')
-    plt.ylabel('')
-    plt.tight_layout()
-    buffer = BytesIO()
-    plt.savefig(buffer, format='png')
-    buffer.seek(0)
-    plt.clf()
-
-    return buffer
-
-
 def year_cycle_graph(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> BytesIO:
     fig, ax = plt.subplots(figsize=(10, 6))
 
@@ -54,6 +41,7 @@ def year_cycle_graph(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> Byt
     plt.savefig(buffer, format='png')
     buffer.seek(0)
     plt.clf()
+    plt.close()
 
     return buffer
 
@@ -144,6 +132,7 @@ def rsi_so_price(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> BytesIO
     plt.savefig(buffer, format='png')
     buffer.seek(0)
     plt.clf()
+    plt.close()
 
     return buffer
 
@@ -187,6 +176,7 @@ def adx(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> BytesIO:
     plt.savefig(buffer, format='png')
     buffer.seek(0)
     plt.clf()
+    plt.close()
 
     return buffer
 
@@ -244,6 +234,7 @@ def macd(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> BytesIO:
     plt.savefig(buffer, format='png')
     buffer.seek(0)
     plt.clf()
+    plt.close()
 
     return buffer
 
@@ -284,6 +275,7 @@ def price_atr(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> BytesIO:
 
     buffer.seek(0)
     plt.clf()
+    plt.close()
 
     return buffer
 
@@ -341,5 +333,6 @@ def moving_averages(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> Byte
     plt.savefig(buffer, format='png')
     buffer.seek(0)
     plt.clf()
+    plt.close()
 
     return buffer

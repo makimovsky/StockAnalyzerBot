@@ -2,16 +2,15 @@ import logging
 import os
 from datetime import datetime
 
-import yfinance as yf
-import yaml
 import pandas as pd
-
+import yfinance as yf
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters, CallbackQueryHandler
-from stock_analysis import year_cycle_graph, rsi_so_price, adx, macd, price_atr, moving_averages
+
 from markups import *
+from stock_analysis import year_cycle_graph, rsi_so_price, adx, macd, price_atr, moving_averages
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -243,6 +242,9 @@ async def mode_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if desired_mode in list(modes.keys()):
         mode = modes[desired_mode]
+        config['mode'] = desired_mode
+        with open('config.yml', 'w') as cfg_file_update:
+            yaml.dump(config, cfg_file_update, default_flow_style=False)
         msg = f'Pomyślnie zmieniono motyw na *{desired_mode}*'
         await context.bot.send_message(chat_id=chat, text=msg, parse_mode=ParseMode.MARKDOWN)
     else:
@@ -255,14 +257,44 @@ async def mode_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat.id
     query = update.callback_query
+    global mode
 
     match query.data:
         case 'settings':
             await context.bot.send_message(chat_id=chat, text='*Ustawienia*', parse_mode=ParseMode.MARKDOWN,
                                            reply_markup=settings_markup)
+        case 'set_return':
+            await query.edit_message_text(text='*Ustawienia*', parse_mode=ParseMode.MARKDOWN,
+                                          reply_markup=settings_markup)
+        case 'cb_mode':
+            await query.edit_message_text(text='*Wybierz motyw*', parse_mode=ParseMode.MARKDOWN,
+                                          reply_markup=modes_markup)
+        case m if m in modes:
+            mode = modes[m]
+            config['mode'] = m
+            with open('config.yml', 'w') as cfg_file_update:
+                yaml.dump(config, cfg_file_update, default_flow_style=False)
+            msg = f'Pomyślnie zmieniono motyw na *{m}*'
+            await query.edit_message_text(text=msg, parse_mode=ParseMode.MARKDOWN)
         case 'atr':
-            await context.bot.send_message(chat_id=chat, text='*Ustawienia ATR*', parse_mode=ParseMode.MARKDOWN,
-                                           reply_markup=atr_markup)
+            await query.edit_message_text(text='*Ustawienia ATR*', parse_mode=ParseMode.MARKDOWN,
+                                          reply_markup=atr_markup)
+        case 'atr_ema_window':
+            await context.bot.send_message(chat_id=chat, text='Podaj okres średniej')
+            application.add_handler(message_handler)
+
+
+async def settings_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        arg = int(update.message.text)
+    except ValueError:
+        err_msg = f'Błąd - Podaj prawidłową liczbę.'
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
+        return
+
+    print(type(arg))
+
+    application.remove_handler(message_handler)
 
 
 async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -284,7 +316,10 @@ if __name__ == '__main__':
     with open('modes.yml', 'r') as file:
         modes = yaml.safe_load(file)
 
-    mode = modes['darkblue']
+    with open('config.yml', 'r') as cfg_file:
+        config = yaml.safe_load(cfg_file)
+
+    mode = modes[config['mode']]
 
     application = ApplicationBuilder().token(token).build()
 
@@ -294,6 +329,7 @@ if __name__ == '__main__':
     ihelp_handler = CommandHandler(['ihelp', 'ih'], ihelp_func)
     mode_handler = CommandHandler(['mode', 'm'], mode_func)
     callback_handler = CallbackQueryHandler(button)
+    message_handler = MessageHandler(filters.TEXT, settings_message)
     unknown_handler = MessageHandler(filters.COMMAND, unknown)
 
     application.add_handler(start_handler)
