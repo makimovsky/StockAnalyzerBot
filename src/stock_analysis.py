@@ -18,11 +18,15 @@ def save_fig() -> BytesIO:
     return buffer
 
 
-def year_cycle_graph(data: pd.DataFrame, mode: dict) -> BytesIO:
+def year_cycle_graph(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> BytesIO:
     fig, ax = plt.subplots(figsize=(10, 6))
 
     fig.patch.set_facecolor(mode['face'])
     ax.set_facecolor(mode['face'])
+
+    p_start = pd.Timestamp(year=int(start.year), month=1, day=1)
+
+    data = data.loc[p_start:]
 
     for year in data.index.year.unique():
         data_year = data[data.index.year == year]["Close"]
@@ -54,22 +58,23 @@ def year_cycle_graph(data: pd.DataFrame, mode: dict) -> BytesIO:
     return buffer
 
 
-def rsi_so_price(data: pd.DataFrame, mode: dict) -> tuple:
+def rsi_so_price(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> BytesIO:
     # RSI
     rsi = momentum.rsi(close=data["Close"], window=14).dropna()
+    rsi = rsi.loc[start:]
 
     avg_rsi = rsi.mean()
     std_rsi = rsi.std()
-    act_rsi = rsi.iloc[-1]
 
     # Stochastics Oscilator
     so = momentum.stoch(high=data['High'], low=data['Low'], close=data['Close'], window=14, smooth_window=3).dropna()
     so_signal = momentum.stoch_signal(high=data['High'], low=data['Low'], close=data['Close'], window=14,
                                       smooth_window=3).dropna()
+    so = so.loc[start:]
+    so_signal = so_signal.loc[start:]
 
     avg_so = so.mean()
     std_so = so.std()
-    act_so = so.iloc[-1]
 
     # chart
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
@@ -140,17 +145,16 @@ def rsi_so_price(data: pd.DataFrame, mode: dict) -> tuple:
     buffer.seek(0)
     plt.clf()
 
-    return round(avg_rsi, 2), round(std_rsi, 2), round(act_rsi, 2), round(avg_so, 2), round(std_so, 2), \
-        round(act_so, 2), buffer
+    return buffer
 
 
-def adx(data: pd.DataFrame, mode: dict) -> BytesIO:
+def adx(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> BytesIO:
     c_adx = trend.adx(high=data['High'], low=data['Low'], close=data['Close'], window=14)
     dipos = trend.adx_pos(high=data['High'], low=data['Low'], close=data['Close'], window=14)
     dineg = trend.adx_neg(high=data['High'], low=data['Low'], close=data['Close'], window=14)
-    c_adx = c_adx[c_adx != 0.0]
-    dipos = dipos[dipos != 0.0]
-    dineg = dineg[dineg != 0.0]
+    c_adx = c_adx.loc[start:]
+    dipos = dipos.loc[start:]
+    dineg = dineg.loc[start:]
 
     # chart
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -170,6 +174,8 @@ def adx(data: pd.DataFrame, mode: dict) -> BytesIO:
     ax.tick_params(axis='y', colors=mode['axes_label'])
     ax.yaxis.label.set_color(mode['axes_label'])
     ax.xaxis.label.set_color(mode['axes_label'])
+    ax.set_xlabel('')
+    ax.set_ylabel('')
     ax.title.set_color(mode['title'])
     ax.grid(color=mode['grid'], linestyle='--')
     leg = ax.legend()
@@ -185,10 +191,14 @@ def adx(data: pd.DataFrame, mode: dict) -> BytesIO:
     return buffer
 
 
-def macd(data: pd.DataFrame, mode: dict) -> BytesIO:
+def macd(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> BytesIO:
     macd_line = trend.macd(data['Close'])
     macd_signal = trend.macd_signal(data['Close'])
     macd_diff = trend.macd_diff(data['Close'])
+
+    macd_line = macd_line.loc[start:]
+    macd_signal = macd_signal.loc[start:]
+    macd_diff = macd_diff.loc[start:]
 
     # chart
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
@@ -238,10 +248,12 @@ def macd(data: pd.DataFrame, mode: dict) -> BytesIO:
     return buffer
 
 
-def price_atr(data: pd.DataFrame, mode: dict) -> BytesIO:
+def price_atr(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> BytesIO:
     ema = trend.ema_indicator(close=data['Close'], window=22).dropna()
     atr = volatility.average_true_range(high=data['High'], low=data['Low'], close=data['Close'], window=22)
-    atr = atr[atr != 0.0]
+
+    ema = ema.loc[start:]
+    atr = atr.loc[start:]
 
     mc = mpf.make_marketcolors(up=mode['mc_up'], down=mode['mc_down'], edge=mode['mc_edge'], volume=mode['mc_volume'],
                                wick=mode['mc_wick'], ohlc=mode['mc_ohlc'])
@@ -276,10 +288,14 @@ def price_atr(data: pd.DataFrame, mode: dict) -> BytesIO:
     return buffer
 
 
-def moving_averages(data: pd.DataFrame, mode: dict) -> BytesIO:
-    ema13 = trend.ema_indicator(data['Close'], window=13).dropna()
-    ema26 = trend.ema_indicator(data['Close'], window=26).dropna()
-    ema_diff = ema13 - ema26
+def moving_averages(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> BytesIO:
+    ema_short = trend.ema_indicator(data['Close'], window=13).dropna()
+    ema_long = trend.ema_indicator(data['Close'], window=26).dropna()
+
+    ema_short = ema_short.loc[start:]
+    ema_long = ema_long.loc[start:]
+
+    ema_diff = ema_short - ema_long
 
     # chart
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
@@ -288,9 +304,10 @@ def moving_averages(data: pd.DataFrame, mode: dict) -> BytesIO:
     ax1.set_facecolor(mode['face'])
     ax2.set_facecolor(mode['face'])
 
-    ax1.plot(data['Close'].loc[ema26.index[0]:ema26.index[-1]], color=mode['price'], label='Cena')
-    ax1.plot(ema13.loc[ema26.index[0]:ema26.index[-1]], color=mode['ema13'], alpha=mode['alpha'], label='13-okresów')
-    ax1.plot(ema26, color=mode['ema26'], alpha=mode['alpha'], label='26-okresów')
+    ax1.plot(data['Close'].loc[ema_long.index[0]:ema_long.index[-1]], color=mode['price'], label='Cena')
+    ax1.plot(ema_short.loc[ema_long.index[0]:ema_long.index[-1]], color=mode['ema_short'], alpha=mode['alpha'],
+             label='Krótsza średnia')
+    ax1.plot(ema_long, color=mode['ema_long'], alpha=mode['alpha'], label='Dłuższa średnia')
     ax1.spines['top'].set_color(mode['edge'])
     ax1.spines['bottom'].set_color(mode['edge'])
     ax1.spines['left'].set_color(mode['edge'])

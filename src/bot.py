@@ -1,13 +1,17 @@
 import logging
 import os
+from datetime import datetime
+
 import yfinance as yf
 import yaml
+import pandas as pd
 
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.constants import ParseMode
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
-from StockAnalysis import year_cycle_graph, rsi_so_price, adx, macd, price_atr, moving_averages
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters, CallbackQueryHandler
+from stock_analysis import year_cycle_graph, rsi_so_price, adx, macd, price_atr, moving_averages
+from markups import *
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -21,92 +25,120 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def review(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global mode
-    intervals = ['1m', '2m', '5m', '15m', '30m', '60m', '90m', '1d', '1wk', '1mo']
+    chat = update.effective_chat.id
+
+    intervals = ['1m', '2m', '5m', '15m', '30m', '60m', '1d', '1wk', '1mo']
 
     periods = {
         '1d': intervals[0:3],
-        '5d': intervals[2:5],
-        '1mo': intervals[3:7],
-        '6mo': intervals[7:8],
-        '1y': intervals[7:9],
-        '2y': intervals[7:9],
-        '5y': intervals[8:],
-        '10y': intervals[9:],
+        '5d': intervals[2:4],
+        '1mo': intervals[4:6],
+        '6mo': intervals[6:7],
+        '1y': intervals[6:8],
+        '2y': intervals[6:8],
+        '5y': intervals[7:],
+        '10y': intervals[8:],
+    }
+
+    periods_timedeltas = {
+        '1d': '1d',
+        '5d': '5d',
+        '1mo': '30d',
+        '6mo': '182d',
+        '1y': '365d',
+        '2y': '730d',
+        '5y': '1826d',
+        '10y': '3652d',
     }
 
     try:
         symbol = update.message.text.split(" ")[1]
     except IndexError:
         err_msg = f"Błąd - podaj symbol. Aby uzyskać więcej pomocy wpisz /help."
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
+        await context.bot.send_message(chat_id=chat, text=err_msg, parse_mode=ParseMode.MARKDOWN)
         return
     try:
         period = update.message.text.split(" ")[2]
     except IndexError:
         period = "1y"
+
+    if period not in periods:
+        period_keys = str(list(periods.keys())).replace("'", "")
+        err_msg = f"Błąd - dostępne okresy czasu: {period_keys}"
+        await context.bot.send_message(chat_id=chat, text=err_msg,
+                                       parse_mode=ParseMode.MARKDOWN)
+        return
+
     try:
         interval = update.message.text.split(" ")[3]
     except IndexError:
         interval = periods.get(period)[0]
 
-    if period not in periods:
-        period_keys = str(list(periods.keys())).replace("'", "")
-        err_msg = f"Błąd - dostępne okresy czasu: {period_keys}"
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
-        return
-
     if interval not in intervals:
         interval_keys = str(intervals).replace("'", "")
         err_msg = f"Błąd - dostępne interwały: {interval_keys}"
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
+        await context.bot.send_message(chat_id=chat, text=err_msg, parse_mode=ParseMode.MARKDOWN)
         return
 
     if interval not in periods.get(period):
         period_intervals = str(periods.get(period)).replace("'", "")
         err_msg = f"Błąd - dostępne interwały dla okresu {period}: {period_intervals}"
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
+        await context.bot.send_message(chat_id=chat, text=err_msg, parse_mode=ParseMode.MARKDOWN)
         return
 
-    data = yf.download(symbol, period=period, interval=interval)
+    match interval:
+        case '1m' | '1d' | '1wk' | '1mo':
+            data = yf.download(symbol, period='max', interval=interval)
+        case '2m' | '5m' | '15m' | '30m':
+            data = yf.download(symbol, start=datetime.now() - pd.Timedelta('59d'), interval=interval)
+        case '60m':
+            data = yf.download(symbol, period='2y', interval=interval)
+        case _:
+            err_msg = f"Błąd!"
+            await context.bot.send_message(chat_id=chat, text=err_msg, parse_mode=ParseMode.MARKDOWN)
+            return
 
     if data.empty:
         err_msg = f"Błąd - Brak danych o *{symbol}*. Upewnij się, że podajesz istniejący symbol giełdowy."
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
+        await context.bot.send_message(chat_id=chat, text=err_msg, parse_mode=ParseMode.MARKDOWN)
         return
 
+    start_date = data.index[-1] - pd.Timedelta(periods_timedeltas.get(period))
+
     # wykres slupkowy oraz kanały ATR
-    chart = price_atr(data, mode)
-    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart,
+    try:
+        chart = price_atr(data, mode, start_date)
+    except ValueError:
+        err_msg = f"Błąd - sprawdź, czy spółka istnieje przez podany okres czasu."
+        await context.bot.send_message(chat_id=chat, text=err_msg, parse_mode=ParseMode.MARKDOWN)
+        return
+    await context.bot.send_photo(chat_id=chat, photo=chart,
                                  caption='Wykres słupkowy cen + kanały ATR')
 
     # srednie kroczace
-    chart = moving_averages(data, mode)
-    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart,
+    chart = moving_averages(data, mode, start_date)
+    await context.bot.send_photo(chat_id=chat, photo=chart,
                                  caption='Wykres średnich kroczących')
 
     # RSI/SO/Cena
-    values = rsi_so_price(data, mode)
-
-    stats = (f"*RSI:*\n\tAktualna wartość: {values[2]}\n\tŚrednia: {values[0]}\n\tOdchylenie: {values[1]}"
-             f"\n\n*Oscylator stochastyczny:*\n\tAktualna wartość: {values[5]}\n\tŚrednia: {values[3]}"
-             f"\n\tOdchylenie: {values[4]}")
-    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=values[6], caption=stats,
+    chart = rsi_so_price(data, mode, start_date)
+    await context.bot.send_photo(chat_id=chat, photo=chart, caption='RSI + Osc. stochastyczny',
                                  parse_mode=ParseMode.MARKDOWN)
 
     # cykle roczne
     if period in list(periods.keys())[6:]:
-        chart = year_cycle_graph(data, mode)
-        await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart,
+        chart = year_cycle_graph(data, mode, start_date)
+        await context.bot.send_photo(chat_id=chat, photo=chart,
                                      caption='Wykres możliwych cykli rocznych')
 
     # ADX
-    chart = adx(data, mode)
-    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart, caption='ADX - wskaźnik trendu')
+    chart = adx(data, mode, start_date)
+    await context.bot.send_photo(chat_id=chat, photo=chart, caption='ADX - wskaźnik trendu')
 
     # MACD
-    chart = macd(data, mode)
-    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart, caption='Wskaźnik MACD')
+    chart = macd(data, mode, start_date)
+    await context.bot.send_photo(chat_id=chat, photo=chart, caption='Wskaźnik MACD',
+                                 reply_markup=main_markup)
 
     return
 
@@ -119,13 +151,15 @@ async def help_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
                  'lat z jednostką osi\n   czasu 1 tydzień.\n\n\n */ihelp (/ih) [atr/średnie/rsi/os/\n               '
                  '         /adx/macd]*\n\n  *Opis:*\n   Komenda służy do wyświetlenia\n   pomocy dotyczącej '
                  'interpretacji\n   wysyłanych przez bota wykresów i\n   danych.\n\n\n */help (/h)*\n\n  *Opis:*\n   '
-                 'Komenda służy do wyświetlenia\n   dostępnych komend.\n\n\n */mode (/m) [light/dark/darkblue]*\n\n  *Opis:*'
-                 '\n   Komenda służy do zmiany motywu\n   wyświetlanych wykresów.')
+                 'Komenda służy do wyświetlenia\n   dostępnych komend.\n\n\n */mode (/m) [light/dark/darkblue]*\n\n  '
+                 '*Opis:*\n   Komenda służy do zmiany motywu\n   wyświetlanych wykresów.')
 
     await context.bot.send_message(chat_id=update.effective_chat.id, text=help_text, parse_mode=ParseMode.MARKDOWN)
 
 
 async def ihelp_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat = update.effective_chat.id
+
     atr_help = ('*Wskaźnik ATR* - wkaźnik średniej rzeczywistej zmienności. Wskaźnik ten jest pomocny przy wyznaczaniu '
                 'poziomów docelowych oraz poziomów stop loss. Stop loss powinien znajdować się w oddaleniu od poziomu '
                 'wejścia przynajmniej o 1 ATR w dół. Po otwarciu transakcji, zyski można realizować przy poziomach '
@@ -172,46 +206,63 @@ async def ihelp_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         help_w = update.message.text.split(" ")[1]
     except IndexError:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=ihelp_text, parse_mode=ParseMode.MARKDOWN)
+        await context.bot.send_message(chat_id=chat, text=ihelp_text, parse_mode=ParseMode.MARKDOWN)
         return
 
-    if help_w == 'atr':
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=atr_help, parse_mode=ParseMode.MARKDOWN)
-    elif help_w == 'średnie':
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=ma_help, parse_mode=ParseMode.MARKDOWN)
-    elif help_w == 'rsi':
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=rsi_help, parse_mode=ParseMode.MARKDOWN)
-    elif help_w == 'os':
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=so_help, parse_mode=ParseMode.MARKDOWN)
-    elif help_w == 'adx':
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=adx_help, parse_mode=ParseMode.MARKDOWN)
-    elif help_w == 'macd':
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=macd_help, parse_mode=ParseMode.MARKDOWN)
-    else:
-        err_msg = f'Błąd - brak pomocy dla *{help_w}*. Aby uzyskać więcej pomocy wpisz /help.'
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
+    match help_w:
+        case 'atr':
+            await context.bot.send_message(chat_id=chat, text=atr_help, parse_mode=ParseMode.MARKDOWN)
+        case 'średnie':
+            await context.bot.send_message(chat_id=chat, text=ma_help, parse_mode=ParseMode.MARKDOWN)
+        case 'rsi':
+            await context.bot.send_message(chat_id=chat, text=rsi_help, parse_mode=ParseMode.MARKDOWN)
+        case'os':
+            await context.bot.send_message(chat_id=chat, text=so_help, parse_mode=ParseMode.MARKDOWN)
+        case 'adx':
+            await context.bot.send_message(chat_id=chat, text=adx_help, parse_mode=ParseMode.MARKDOWN)
+        case 'macd':
+            await context.bot.send_message(chat_id=chat, text=macd_help, parse_mode=ParseMode.MARKDOWN)
+        case _:
+            err_msg = f'Błąd - brak pomocy dla *{help_w}*. Aby uzyskać więcej pomocy wpisz /help.'
+            await context.bot.send_message(chat_id=chat, text=err_msg, parse_mode=ParseMode.MARKDOWN)
 
     return
 
 
 async def mode_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global modes, mode
+    chat = update.effective_chat.id
+
+    global mode
+
     try:
         desired_mode = update.message.text.split(" ")[1]
     except IndexError:
         err_msg = 'Błąd - podaj motyw. Aby uzyskać więcej pomocy wpisz /help.'
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
+        await context.bot.send_message(chat_id=chat, text=err_msg, parse_mode=ParseMode.MARKDOWN)
         return
 
     if desired_mode in list(modes.keys()):
         mode = modes[desired_mode]
         msg = f'Pomyślnie zmieniono motyw na *{desired_mode}*'
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode=ParseMode.MARKDOWN)
+        await context.bot.send_message(chat_id=chat, text=msg, parse_mode=ParseMode.MARKDOWN)
     else:
         err_msg = f'Błąd - brak motywu o nazwie *{desired_mode}*. Aby uzyskać więcej pomocy wpisz /help.'
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
+        await context.bot.send_message(chat_id=chat, text=err_msg, parse_mode=ParseMode.MARKDOWN)
 
     return
+
+
+async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat = update.effective_chat.id
+    query = update.callback_query
+
+    match query.data:
+        case 'settings':
+            await context.bot.send_message(chat_id=chat, text='*Ustawienia*', parse_mode=ParseMode.MARKDOWN,
+                                           reply_markup=settings_markup)
+        case 'atr':
+            await context.bot.send_message(chat_id=chat, text='*Ustawienia ATR*', parse_mode=ParseMode.MARKDOWN,
+                                           reply_markup=atr_markup)
 
 
 async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -242,6 +293,7 @@ if __name__ == '__main__':
     help_handler = CommandHandler(['help', 'h'], help_func)
     ihelp_handler = CommandHandler(['ihelp', 'ih'], ihelp_func)
     mode_handler = CommandHandler(['mode', 'm'], mode_func)
+    callback_handler = CallbackQueryHandler(button)
     unknown_handler = MessageHandler(filters.COMMAND, unknown)
 
     application.add_handler(start_handler)
@@ -249,6 +301,7 @@ if __name__ == '__main__':
     application.add_handler(help_handler)
     application.add_handler(ihelp_handler)
     application.add_handler(mode_handler)
+    application.add_handler(callback_handler)
     application.add_handler(unknown_handler)
 
     application.run_polling()
