@@ -1,1 +1,12 @@
+adx_window: 14
+atr_ema_window: 22
+atr_window: 22
+ema_long: 26
+ema_short: 13
+macd_fast: 12
+macd_sign: 9
+macd_slow: 26
 mode: darkblue
+rsi_window: 14
+so_smooth_window: 3
+so_window: 14

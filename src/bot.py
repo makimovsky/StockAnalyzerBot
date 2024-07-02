@@ -106,7 +106,8 @@ async def review(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # wykres slupkowy oraz kanały ATR
     try:
-        chart = price_atr(data, mode, start_date)
+        chart = price_atr(data=data, mode=mode, start=start_date, atr_window=config['atr_window'],
+                          atr_ema_window=config['atr_ema_window'])
     except ValueError:
         err_msg = f"Błąd - sprawdź, czy spółka istnieje przez podany okres czasu."
         await context.bot.send_message(chat_id=chat, text=err_msg, parse_mode=ParseMode.MARKDOWN)
@@ -115,27 +116,30 @@ async def review(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                  caption='Wykres słupkowy cen + kanały ATR')
 
     # srednie kroczace
-    chart = moving_averages(data, mode, start_date)
+    chart = moving_averages(data=data, mode=mode, start=start_date, short_window=config['ema_short'],
+                            long_window=config['ema_long'])
     await context.bot.send_photo(chat_id=chat, photo=chart,
                                  caption='Wykres średnich kroczących')
 
     # RSI/SO/Cena
-    chart = rsi_so_price(data, mode, start_date)
+    chart = rsi_so_price(data=data, mode=mode, start=start_date, rsi_window=config['rsi_window'],
+                         so_window=config['so_window'], so_smooth_window=config['so_smooth_window'])
     await context.bot.send_photo(chat_id=chat, photo=chart, caption='RSI + Osc. stochastyczny',
                                  parse_mode=ParseMode.MARKDOWN)
 
     # cykle roczne
     if period in list(periods.keys())[6:]:
-        chart = year_cycle_graph(data, mode, start_date)
+        chart = year_cycle_graph(data=data, mode=mode, start=start_date)
         await context.bot.send_photo(chat_id=chat, photo=chart,
                                      caption='Wykres możliwych cykli rocznych')
 
     # ADX
-    chart = adx(data, mode, start_date)
+    chart = adx(data=data, mode=mode, start=start_date, adx_window=config['adx_window'])
     await context.bot.send_photo(chat_id=chat, photo=chart, caption='ADX - wskaźnik trendu')
 
     # MACD
-    chart = macd(data, mode, start_date)
+    chart = macd(data=data, mode=mode, start=start_date, macd_slow=config['macd_slow'], macd_fast=config['macd_fast'],
+                 macd_sign=config['macd_sign'])
     await context.bot.send_photo(chat_id=chat, photo=chart, caption='Wskaźnik MACD',
                                  reply_markup=main_markup)
 
@@ -154,6 +158,8 @@ async def help_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
                  '*Opis:*\n   Komenda służy do zmiany motywu\n   wyświetlanych wykresów.')
 
     await context.bot.send_message(chat_id=update.effective_chat.id, text=help_text, parse_mode=ParseMode.MARKDOWN)
+
+    return
 
 
 async def ihelp_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -257,7 +263,7 @@ async def mode_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat.id
     query = update.callback_query
-    global mode
+    global mode, settings_value
 
     match query.data:
         case 'settings':
@@ -277,14 +283,38 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             msg = f'Pomyślnie zmieniono motyw na *{m}*'
             await query.edit_message_text(text=msg, parse_mode=ParseMode.MARKDOWN)
         case 'atr':
-            await query.edit_message_text(text='*Ustawienia ATR*', parse_mode=ParseMode.MARKDOWN,
-                                          reply_markup=atr_markup)
-        case 'atr_ema_window':
-            await context.bot.send_message(chat_id=chat, text='Podaj okres średniej')
-            application.add_handler(message_handler)
+            settings_atr = (f'*Ustawienia ATR*\nOkres średniej: {config['atr_ema_window']}\nOkres ATR: '
+                            f'{config['atr_window']}')
+            await query.edit_message_text(text=settings_atr, parse_mode=ParseMode.MARKDOWN, reply_markup=atr_markup)
+        case 'ma':
+            settings_ma = (f'*Ustawienia średnich*\nOkres krótkiej średniej: {config['ema_short']}\nOkres długiej '
+                           f'średniej: {config['ema_long']}')
+            await query.edit_message_text(text=settings_ma, parse_mode=ParseMode.MARKDOWN, reply_markup=ma_markup)
+        case 'rsi':
+            settings_rsi = f'*Ustawienia RSI*\nOkres RSI: {config['rsi_window']}'
+            await query.edit_message_text(text=settings_rsi, parse_mode=ParseMode.MARKDOWN, reply_markup=rsi_markup)
+        case 'so':
+            settings_so = (f'*Ustawienia osc. stochastycznego*\nOkres osc. stochastycznego: {config['so_window']}'
+                           f'\nOkres sygnału: {config['so_smooth_window']}')
+            await query.edit_message_text(text=settings_so, parse_mode=ParseMode.MARKDOWN, reply_markup=so_markup)
+        case 'adx':
+            settings_adx = f'*Ustawienia ADX*\nOkres ADX: {config['adx_window']}'
+            await query.edit_message_text(text=settings_adx, parse_mode=ParseMode.MARKDOWN, reply_markup=adx_markup)
+        case 'macd':
+            settings_macd = (f'*Ustawienia MACD*\nKrótki okres MACD: {config['macd_fast']}\nDługi okres MACD: '
+                             f'{config['macd_slow']}\nOkres sygnału MACD: {config['macd_sign']}')
+            await query.edit_message_text(text=settings_macd, parse_mode=ParseMode.MARKDOWN, reply_markup=macd_markup)
+        case sv if sv in config:
+            manage_handlers(remove=True)
+            settings_value = sv
+            await query.edit_message_text(text='Podaj okres')
+
+    return
 
 
-async def settings_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def settings_manager(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global config
+
     try:
         arg = int(update.message.text)
     except ValueError:
@@ -292,14 +322,49 @@ async def settings_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
         return
 
-    print(type(arg))
+    if arg > 300 or arg < 3:
+        err_msg = f'Błąd - Okres nie może być dłuższy niż 300 i krótszy niż 3.'
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
+        return
 
-    application.remove_handler(message_handler)
+    config[settings_value] = arg
+
+    with open('config.yml', 'w') as cfg_file_update:
+        yaml.dump(config, cfg_file_update, default_flow_style=False)
+    msg = f'Pomyślnie zmieniono okres na *{arg}*'
+
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode=ParseMode.MARKDOWN)
+    manage_handlers()
+
+    return
 
 
 async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
     err_msg = 'Błąd. Aby uzyskać więcej pomocy wpisz \n/help.'
     await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
+
+    return
+
+
+def manage_handlers(remove: bool = False) -> None:
+    if remove:
+        application.remove_handler(start_handler)
+        application.remove_handler(review_handler)
+        application.remove_handler(help_handler)
+        application.remove_handler(ihelp_handler)
+        application.remove_handler(mode_handler)
+        application.remove_handler(unknown_handler)
+        application.add_handler(settings_handler)
+
+        return
+
+    application.remove_handler(settings_handler)
+    application.add_handler(start_handler)
+    application.add_handler(review_handler)
+    application.add_handler(help_handler)
+    application.add_handler(ihelp_handler)
+    application.add_handler(mode_handler)
+    application.add_handler(unknown_handler)
 
     return
 
@@ -320,6 +385,7 @@ if __name__ == '__main__':
         config = yaml.safe_load(cfg_file)
 
     mode = modes[config['mode']]
+    settings_value = None
 
     application = ApplicationBuilder().token(token).build()
 
@@ -329,15 +395,11 @@ if __name__ == '__main__':
     ihelp_handler = CommandHandler(['ihelp', 'ih'], ihelp_func)
     mode_handler = CommandHandler(['mode', 'm'], mode_func)
     callback_handler = CallbackQueryHandler(button)
-    message_handler = MessageHandler(filters.TEXT, settings_message)
+    settings_handler = MessageHandler(filters.TEXT, settings_manager)
     unknown_handler = MessageHandler(filters.COMMAND, unknown)
 
-    application.add_handler(start_handler)
-    application.add_handler(review_handler)
-    application.add_handler(help_handler)
-    application.add_handler(ihelp_handler)
-    application.add_handler(mode_handler)
     application.add_handler(callback_handler)
-    application.add_handler(unknown_handler)
+
+    manage_handlers()
 
     application.run_polling()

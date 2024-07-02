@@ -21,9 +21,6 @@ settings_markup = InlineKeyboardMarkup([
         InlineKeyboardButton(text='Osc. Stochastyczny >', callback_data='so')
     ],
     [
-        InlineKeyboardButton(text='Cykle roczne >', callback_data='ycycles')
-    ],
-    [
         InlineKeyboardButton(text='ADX >', callback_data='adx')
     ],
     [
@@ -36,10 +33,67 @@ settings_markup = InlineKeyboardMarkup([
 
 atr_markup = InlineKeyboardMarkup([
     [
-        InlineKeyboardButton(text='Okres średniej >', callback_data='atr_ema_window')
+        InlineKeyboardButton(text='Zmień okres średniej >', callback_data='atr_ema_window')
     ],
     [
-        InlineKeyboardButton(text='Okres ATR >', callback_data='atr_atr_window')
+        InlineKeyboardButton(text='Zmień okres ATR >', callback_data='atr_window')
+    ],
+    [
+        InlineKeyboardButton(text='< Powrót', callback_data='set_return')
+    ]
+])
+
+ma_markup = InlineKeyboardMarkup([
+    [
+        InlineKeyboardButton(text='Zmień okres krótkiej średniej >', callback_data='ema_short')
+    ],
+    [
+        InlineKeyboardButton(text='Zmień okres długiej średniej >', callback_data='ema_long')
+    ],
+    [
+        InlineKeyboardButton(text='< Powrót', callback_data='set_return')
+    ]
+])
+
+rsi_markup = InlineKeyboardMarkup([
+    [
+        InlineKeyboardButton(text='Zmień okres RSI >', callback_data='rsi_window')
+    ],
+    [
+        InlineKeyboardButton(text='< Powrót', callback_data='set_return')
+    ]
+])
+
+so_markup = InlineKeyboardMarkup([
+    [
+        InlineKeyboardButton(text='Zmień okres osc. stochastycznego >', callback_data='so_window')
+    ],
+    [
+        InlineKeyboardButton(text='Zmień okres sygnału >', callback_data='so_smooth_window')
+    ],
+    [
+        InlineKeyboardButton(text='< Powrót', callback_data='set_return')
+    ]
+])
+
+adx_markup = InlineKeyboardMarkup([
+    [
+        InlineKeyboardButton(text='Zmień okres ADX >', callback_data='adx_window')
+    ],
+    [
+        InlineKeyboardButton(text='< Powrót', callback_data='set_return')
+    ]
+])
+
+macd_markup = InlineKeyboardMarkup([
+    [
+        InlineKeyboardButton(text='Zmień krótki okres MACD >', callback_data='macd_fast')
+    ],
+    [
+        InlineKeyboardButton(text='Zmień długi okres MACD >', callback_data='macd_slow')
+    ],
+    [
+        InlineKeyboardButton(text='Zmień okres sygnału MACD >', callback_data='macd_sign')
     ],
     [
         InlineKeyboardButton(text='< Powrót', callback_data='set_return')

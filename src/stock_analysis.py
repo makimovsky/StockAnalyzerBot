@@ -46,18 +46,20 @@ def year_cycle_graph(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> Byt
     return buffer
 
 
-def rsi_so_price(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> BytesIO:
+def rsi_so_price(data: pd.DataFrame, mode: dict, start: pd.Timestamp, rsi_window: int, so_window: int,
+                 so_smooth_window: int) -> BytesIO:
     # RSI
-    rsi = momentum.rsi(close=data["Close"], window=14).dropna()
+    rsi = momentum.rsi(close=data["Close"], window=rsi_window).dropna()
     rsi = rsi.loc[start:]
 
     avg_rsi = rsi.mean()
     std_rsi = rsi.std()
 
     # Stochastics Oscilator
-    so = momentum.stoch(high=data['High'], low=data['Low'], close=data['Close'], window=14, smooth_window=3).dropna()
-    so_signal = momentum.stoch_signal(high=data['High'], low=data['Low'], close=data['Close'], window=14,
-                                      smooth_window=3).dropna()
+    so = momentum.stoch(high=data['High'], low=data['Low'], close=data['Close'], window=so_window,
+                        smooth_window=so_smooth_window).dropna()
+    so_signal = momentum.stoch_signal(high=data['High'], low=data['Low'], close=data['Close'], window=so_window,
+                                      smooth_window=so_smooth_window).dropna()
     so = so.loc[start:]
     so_signal = so_signal.loc[start:]
 
@@ -137,10 +139,10 @@ def rsi_so_price(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> BytesIO
     return buffer
 
 
-def adx(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> BytesIO:
-    c_adx = trend.adx(high=data['High'], low=data['Low'], close=data['Close'], window=14)
-    dipos = trend.adx_pos(high=data['High'], low=data['Low'], close=data['Close'], window=14)
-    dineg = trend.adx_neg(high=data['High'], low=data['Low'], close=data['Close'], window=14)
+def adx(data: pd.DataFrame, mode: dict, start: pd.Timestamp, adx_window: int) -> BytesIO:
+    c_adx = trend.adx(high=data['High'], low=data['Low'], close=data['Close'], window=adx_window)
+    dipos = trend.adx_pos(high=data['High'], low=data['Low'], close=data['Close'], window=adx_window)
+    dineg = trend.adx_neg(high=data['High'], low=data['Low'], close=data['Close'], window=adx_window)
     c_adx = c_adx.loc[start:]
     dipos = dipos.loc[start:]
     dineg = dineg.loc[start:]
@@ -181,10 +183,11 @@ def adx(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> BytesIO:
     return buffer
 
 
-def macd(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> BytesIO:
-    macd_line = trend.macd(data['Close'])
-    macd_signal = trend.macd_signal(data['Close'])
-    macd_diff = trend.macd_diff(data['Close'])
+def macd(data: pd.DataFrame, mode: dict, start: pd.Timestamp, macd_slow: int, macd_fast: int,
+         macd_sign: int) -> BytesIO:
+    macd_line = trend.macd(data['Close'], window_slow=macd_slow, window_fast=macd_fast)
+    macd_signal = trend.macd_signal(data['Close'], window_slow=macd_slow, window_fast=macd_fast, window_sign=macd_sign)
+    macd_diff = trend.macd_diff(data['Close'], window_slow=macd_slow, window_fast=macd_fast, window_sign=macd_sign)
 
     macd_line = macd_line.loc[start:]
     macd_signal = macd_signal.loc[start:]
@@ -239,12 +242,13 @@ def macd(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> BytesIO:
     return buffer
 
 
-def price_atr(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> BytesIO:
-    ema = trend.ema_indicator(close=data['Close'], window=22).dropna()
-    atr = volatility.average_true_range(high=data['High'], low=data['Low'], close=data['Close'], window=22)
+def price_atr(data: pd.DataFrame, mode: dict, start: pd.Timestamp, atr_ema_window: int, atr_window: int) -> BytesIO:
+    ema = trend.ema_indicator(close=data['Close'], window=atr_ema_window).dropna()
+    atr = volatility.average_true_range(high=data['High'], low=data['Low'], close=data['Close'], window=atr_window)
 
     ema = ema.loc[start:]
     atr = atr.loc[start:]
+    data = data.loc[start:]
 
     mc = mpf.make_marketcolors(up=mode['mc_up'], down=mode['mc_down'], edge=mode['mc_edge'], volume=mode['mc_volume'],
                                wick=mode['mc_wick'], ohlc=mode['mc_ohlc'])
@@ -280,9 +284,10 @@ def price_atr(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> BytesIO:
     return buffer
 
 
-def moving_averages(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> BytesIO:
-    ema_short = trend.ema_indicator(data['Close'], window=13).dropna()
-    ema_long = trend.ema_indicator(data['Close'], window=26).dropna()
+def moving_averages(data: pd.DataFrame, mode: dict, start: pd.Timestamp, short_window: int, long_window: int) \
+        -> BytesIO:
+    ema_short = trend.ema_indicator(data['Close'], window=short_window).dropna()
+    ema_long = trend.ema_indicator(data['Close'], window=long_window).dropna()
 
     ema_short = ema_short.loc[start:]
     ema_long = ema_long.loc[start:]
