@@ -13,17 +13,29 @@ from markups import *
 from stock_analysis import year_cycle_graph, rsi_so_price, adx, macd, price_atr, moving_averages
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Funckja obsługuje komendę /start.
+    :param update: Obiekt klasy Update, który reprezentuje bieżące zdarzenie w Telegramie.
+    :param context: Obiekt klasy Context, który zawiera informacje kontekstowe dotyczące bieżącego stanu bota.
+    :return: None
+    """
     text = ("*Cześć!*\nJestem botem, który pomaga analizować rynki finansowe.\n\n*Jak działam?*\nPobieram dane "
-            "z Yahoo Finance i na ich podstawie wyświetlam wykresy oraz wartości wskaźników. Wpisz /help, aby uzyskać "
-            "więcej informacji.")
+            "z Yahoo Finance i na ich podstawie wyświetlam wykresy oraz wartości wskaźników.\nWpisz /help, aby uzyskać "
+            "informacje o dostępnych komendach.")
 
     await context.bot.send_message(chat_id=update.effective_chat.id, text=text, parse_mode=ParseMode.MARKDOWN)
 
     return
 
 
-async def review(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def review(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Funkcja obsługuje analize rynków finansowych.
+    :param update: Obiekt klasy Update, który reprezentuje bieżące zdarzenie w Telegramie.
+    :param context: Obiekt klasy Context, który zawiera informacje kontekstowe dotyczące bieżącego stanu bota.
+    :return: None
+    """
     chat = update.effective_chat.id
 
     intervals = ['1m', '2m', '5m', '15m', '30m', '60m', '1d', '1wk', '1mo']
@@ -146,7 +158,13 @@ async def review(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return
 
 
-async def help_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def help_func(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Funckja obsługuje pomoc.
+    :param update: Obiekt klasy Update, który reprezentuje bieżące zdarzenie w Telegramie.
+    :param context: Obiekt klasy Context, który zawiera informacje kontekstowe dotyczące bieżącego stanu bota.
+    :return: None
+    """
     help_text = ('*Dostępne komendy:*\n */review (/r) [symbol] [okres] [interwał]*\n\n  *Opis:*\n   Komenda służy do '
                  'wyświetlania danych\n   o podanym symbolu w podanym\n   okresie z podanym interwałem.\n\n  '
                  '*Parametry:*\n   _symbol_: Symbol giełdowy\n   _okres_: Okres danych\n   _interwał_: Interwał '
@@ -162,7 +180,13 @@ async def help_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return
 
 
-async def ihelp_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def ihelp_func(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Funkcja obsługuje pomoc w interpretacji wskaźników.
+    :param update: Obiekt klasy Update, który reprezentuje bieżące zdarzenie w Telegramie.
+    :param context: Obiekt klasy Context, który zawiera informacje kontekstowe dotyczące bieżącego stanu bota.
+    :return: None
+    """
     chat = update.effective_chat.id
 
     atr_help = ('*Wskaźnik ATR* - wkaźnik średniej rzeczywistej zmienności. Wskaźnik ten jest pomocny przy wyznaczaniu '
@@ -234,7 +258,13 @@ async def ihelp_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return
 
 
-async def mode_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def mode_func(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Funkcja obsługuje zmianę motywu przez użytkownika.
+    :param update: Obiekt klasy Update, który reprezentuje bieżące zdarzenie w Telegramie.
+    :param context: Obiekt klasy Context, który zawiera informacje kontekstowe dotyczące bieżącego stanu bota.
+    :return: None
+    """
     chat = update.effective_chat.id
 
     global mode
@@ -260,7 +290,13 @@ async def mode_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return
 
 
-async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Funckja obsługuje wciskane przez użytkownika przyciski.
+    :param update: Obiekt klasy Update, który reprezentuje bieżące zdarzenie w Telegramie.
+    :param context: Obiekt klasy Context, który zawiera informacje kontekstowe dotyczące bieżącego stanu bota.
+    :return: None
+    """
     chat = update.effective_chat.id
     query = update.callback_query
     global mode, settings_value
@@ -283,26 +319,26 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             msg = f'Pomyślnie zmieniono motyw na *{m}*'
             await query.edit_message_text(text=msg, parse_mode=ParseMode.MARKDOWN)
         case 'atr':
-            settings_atr = (f'*Ustawienia ATR*\nOkres średniej: {config['atr_ema_window']}\nOkres ATR: '
-                            f'{config['atr_window']}')
+            settings_atr = (f'*Ustawienia ATR*\nOkres średniej: {config["atr_ema_window"]}\nOkres ATR: '
+                            f'{config["atr_window"]}')
             await query.edit_message_text(text=settings_atr, parse_mode=ParseMode.MARKDOWN, reply_markup=atr_markup)
         case 'ma':
-            settings_ma = (f'*Ustawienia średnich*\nOkres krótkiej średniej: {config['ema_short']}\nOkres długiej '
-                           f'średniej: {config['ema_long']}')
+            settings_ma = (f'*Ustawienia średnich*\nOkres krótkiej średniej: {config["ema_short"]}\nOkres długiej '
+                           f'średniej: {config["ema_long"]}')
             await query.edit_message_text(text=settings_ma, parse_mode=ParseMode.MARKDOWN, reply_markup=ma_markup)
         case 'rsi':
-            settings_rsi = f'*Ustawienia RSI*\nOkres RSI: {config['rsi_window']}'
+            settings_rsi = f'*Ustawienia RSI*\nOkres RSI: {config["rsi_window"]}'
             await query.edit_message_text(text=settings_rsi, parse_mode=ParseMode.MARKDOWN, reply_markup=rsi_markup)
         case 'so':
-            settings_so = (f'*Ustawienia osc. stochastycznego*\nOkres osc. stochastycznego: {config['so_window']}'
-                           f'\nOkres sygnału: {config['so_smooth_window']}')
+            settings_so = (f'*Ustawienia osc. stochastycznego*\nOkres osc. stochastycznego: {config["so_window"]}'
+                           f'\nOkres sygnału: {config["so_smooth_window"]}')
             await query.edit_message_text(text=settings_so, parse_mode=ParseMode.MARKDOWN, reply_markup=so_markup)
         case 'adx':
-            settings_adx = f'*Ustawienia ADX*\nOkres ADX: {config['adx_window']}'
+            settings_adx = f'*Ustawienia ADX*\nOkres ADX: {config["adx_window"]}'
             await query.edit_message_text(text=settings_adx, parse_mode=ParseMode.MARKDOWN, reply_markup=adx_markup)
         case 'macd':
-            settings_macd = (f'*Ustawienia MACD*\nKrótki okres MACD: {config['macd_fast']}\nDługi okres MACD: '
-                             f'{config['macd_slow']}\nOkres sygnału MACD: {config['macd_sign']}')
+            settings_macd = (f'*Ustawienia MACD*\nKrótki okres MACD: {config["macd_fast"]}\nDługi okres MACD: '
+                             f'{config["macd_slow"]}\nOkres sygnału MACD: {config["macd_sign"]}')
             await query.edit_message_text(text=settings_macd, parse_mode=ParseMode.MARKDOWN, reply_markup=macd_markup)
         case sv if sv in config:
             manage_handlers(remove=True)
@@ -312,7 +348,13 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return
 
 
-async def settings_manager(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def settings_manager(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Funkcja obsługuje zmianę ustawień w configu.
+    :param update: Obiekt klasy Update, który reprezentuje bieżące zdarzenie w Telegramie.
+    :param context: Obiekt klasy Context, który zawiera informacje kontekstowe dotyczące bieżącego stanu bota.
+    :return: None
+    """
     global config
 
     try:
@@ -339,7 +381,13 @@ async def settings_manager(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return
 
 
-async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Funkcja obsługuje nieznane komendy.
+    :param update: Obiekt klasy Update, który reprezentuje bieżące zdarzenie w Telegramie.
+    :param context: Obiekt klasy Context, który zawiera informacje kontekstowe dotyczące bieżącego stanu bota.
+    :return: None
+    """
     err_msg = 'Błąd. Aby uzyskać więcej pomocy wpisz \n/help.'
     await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
 
@@ -347,6 +395,11 @@ async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def manage_handlers(remove: bool = False) -> None:
+    """
+    Funkcja służy do włączania i wyłączania handlerów.
+    :param remove: True - wyłączenie / False - włączenie
+    :return: None
+    """
     if remove:
         application.remove_handler(start_handler)
         application.remove_handler(review_handler)

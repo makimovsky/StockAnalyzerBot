@@ -6,6 +6,13 @@ import mplfinance as mpf
 
 
 def year_cycle_graph(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> BytesIO:
+    """
+    Funkcja tworzy wykres możliwych cykli rocznych.
+    :param data: DataFrame - dane do analizy z yfinance
+    :param mode: dict - motyw wykresów
+    :param start: Timestamp - data rozpoczęcia wykresu
+    :return: BytesIO
+    """
     fig, ax = plt.subplots(figsize=(10, 6))
 
     fig.patch.set_facecolor(mode['face'])
@@ -15,6 +22,7 @@ def year_cycle_graph(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> Byt
 
     data = data.loc[p_start:]
 
+    # chart
     for year in data.index.year.unique():
         data_year = data[data.index.year == year]["Close"]
         data_year = data_year / data_year.max()
@@ -48,6 +56,16 @@ def year_cycle_graph(data: pd.DataFrame, mode: dict, start: pd.Timestamp) -> Byt
 
 def rsi_so_price(data: pd.DataFrame, mode: dict, start: pd.Timestamp, rsi_window: int, so_window: int,
                  so_smooth_window: int) -> BytesIO:
+    """
+    Funkcja tworzy wykres ceny do RSI oraz Osc. stochastycznego.
+    :param data: DataFrame - dane do analizy z yfinance
+    :param mode: dict - motyw wykresów
+    :param start: Timestamp - data rozpoczęcia wykresu
+    :param rsi_window: int - okres RSI
+    :param so_window: int - okres osc. stochastycznego
+    :param so_smooth_window: int - okres linii sygnału w osc. stochastycznym
+    :return: BytesIO
+    """
     # RSI
     rsi = momentum.rsi(close=data["Close"], window=rsi_window).dropna()
     rsi = rsi.loc[start:]
@@ -140,6 +158,14 @@ def rsi_so_price(data: pd.DataFrame, mode: dict, start: pd.Timestamp, rsi_window
 
 
 def adx(data: pd.DataFrame, mode: dict, start: pd.Timestamp, adx_window: int) -> BytesIO:
+    """
+    Funkcja tworzy wykres ADX - wskaźnik trendu.
+    :param data: DataFrame - dane do analizy z yfinance
+    :param mode: dict - motyw wykresów
+    :param start: Timestamp - data rozpoczęcia wykresu
+    :param adx_window: int - okres ADX
+    :return: BytesIO
+    """
     c_adx = trend.adx(high=data['High'], low=data['Low'], close=data['Close'], window=adx_window)
     dipos = trend.adx_pos(high=data['High'], low=data['Low'], close=data['Close'], window=adx_window)
     dineg = trend.adx_neg(high=data['High'], low=data['Low'], close=data['Close'], window=adx_window)
@@ -185,6 +211,16 @@ def adx(data: pd.DataFrame, mode: dict, start: pd.Timestamp, adx_window: int) ->
 
 def macd(data: pd.DataFrame, mode: dict, start: pd.Timestamp, macd_slow: int, macd_fast: int,
          macd_sign: int) -> BytesIO:
+    """
+    Funkcja tworzy wykres MACD.
+    :param data: DataFrame - dane do analizy z yfinance
+    :param mode: dict - motyw wykresów
+    :param start: Timestamp - data rozpoczęcia wykresu
+    :param macd_slow: int - długi okres MACD
+    :param macd_fast: int - krótki okres MACD
+    :param macd_sign: int - okres sygnału MACD
+    :return: BytesIO
+    """
     macd_line = trend.macd(data['Close'], window_slow=macd_slow, window_fast=macd_fast)
     macd_signal = trend.macd_signal(data['Close'], window_slow=macd_slow, window_fast=macd_fast, window_sign=macd_sign)
     macd_diff = trend.macd_diff(data['Close'], window_slow=macd_slow, window_fast=macd_fast, window_sign=macd_sign)
@@ -194,15 +230,15 @@ def macd(data: pd.DataFrame, mode: dict, start: pd.Timestamp, macd_slow: int, ma
     macd_diff = macd_diff.loc[start:]
 
     # chart
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
 
     fig.patch.set_facecolor(mode['face'])
     ax1.set_facecolor(mode['face'])
     ax2.set_facecolor(mode['face'])
+    ax3.set_facecolor(mode['face'])
 
-    ax1.plot(macd_line, label='Linia MACD', color=mode['macd'])
-    ax1.plot(macd_signal, label='Linia sygnału', color=mode['macd_signal'])
-    ax1.set_ylabel("MACD")
+    ax1.plot(data['Close'].loc[macd_line.index[0]:macd_line.index[-1]], color=mode['price'], label='Cena')
+    ax1.set_ylabel('Cena')
     ax1.spines['top'].set_color(mode['edge'])
     ax1.spines['bottom'].set_color(mode['edge'])
     ax1.spines['left'].set_color(mode['edge'])
@@ -217,10 +253,9 @@ def macd(data: pd.DataFrame, mode: dict, start: pd.Timestamp, macd_slow: int, ma
     for text in leg.get_texts():
         text.set_color(mode['text'])
 
-    bar_width = (macd_diff.index[1] - macd_diff.index[0]) * 0.7
-    colors = [mode['mc_up'] if val >= 0 else mode['mc_down'] for val in macd_diff]
-    ax2.bar(macd_diff.index, macd_diff, color=colors, width=bar_width)
-    ax2.set_ylabel("Różnica MACD-Linia sygnału")
+    ax2.plot(macd_line, label='Linia MACD', color=mode['macd'])
+    ax2.plot(macd_signal, label='Linia sygnału', color=mode['macd_signal'])
+    ax2.set_ylabel("MACD")
     ax2.spines['top'].set_color(mode['edge'])
     ax2.spines['bottom'].set_color(mode['edge'])
     ax2.spines['left'].set_color(mode['edge'])
@@ -231,6 +266,24 @@ def macd(data: pd.DataFrame, mode: dict, start: pd.Timestamp, macd_slow: int, ma
     ax2.xaxis.label.set_color(mode['axes_label'])
     ax2.title.set_color(mode['title'])
     ax2.grid(color=mode['grid'], linestyle='--')
+    leg = ax2.legend()
+    for text in leg.get_texts():
+        text.set_color(mode['text'])
+
+    bar_width = (macd_diff.index[1] - macd_diff.index[0]) * 0.7
+    colors = [mode['mc_up'] if val >= 0 else mode['mc_down'] for val in macd_diff]
+    ax3.bar(macd_diff.index, macd_diff, color=colors, width=bar_width)
+    ax3.set_ylabel("Histogram MACD")
+    ax3.spines['top'].set_color(mode['edge'])
+    ax3.spines['bottom'].set_color(mode['edge'])
+    ax3.spines['left'].set_color(mode['edge'])
+    ax3.spines['right'].set_color(mode['edge'])
+    ax3.tick_params(axis='x', colors=mode['axes_label'])
+    ax3.tick_params(axis='y', colors=mode['axes_label'])
+    ax3.yaxis.label.set_color(mode['axes_label'])
+    ax3.xaxis.label.set_color(mode['axes_label'])
+    ax3.title.set_color(mode['title'])
+    ax3.grid(color=mode['grid'], linestyle='--')
 
     plt.tight_layout()
     buffer = BytesIO()
@@ -243,6 +296,15 @@ def macd(data: pd.DataFrame, mode: dict, start: pd.Timestamp, macd_slow: int, ma
 
 
 def price_atr(data: pd.DataFrame, mode: dict, start: pd.Timestamp, atr_ema_window: int, atr_window: int) -> BytesIO:
+    """
+    Funkcja tworzy wykres ceny z kanałami ATR.
+    :param data: DataFrame - dane do analizy z yfinance
+    :param mode: dict - motyw wykresów
+    :param start: Timestamp - data rozpoczęcia wykresu
+    :param atr_ema_window: int - okres średniej
+    :param atr_window: int - okres ATR
+    :return: BytesIO
+    """
     ema = trend.ema_indicator(close=data['Close'], window=atr_ema_window).dropna()
     atr = volatility.average_true_range(high=data['High'], low=data['Low'], close=data['Close'], window=atr_window)
 
@@ -250,6 +312,7 @@ def price_atr(data: pd.DataFrame, mode: dict, start: pd.Timestamp, atr_ema_windo
     atr = atr.loc[start:]
     data = data.loc[start:]
 
+    # chart
     mc = mpf.make_marketcolors(up=mode['mc_up'], down=mode['mc_down'], edge=mode['mc_edge'], volume=mode['mc_volume'],
                                wick=mode['mc_wick'], ohlc=mode['mc_ohlc'])
 
@@ -286,6 +349,15 @@ def price_atr(data: pd.DataFrame, mode: dict, start: pd.Timestamp, atr_ema_windo
 
 def moving_averages(data: pd.DataFrame, mode: dict, start: pd.Timestamp, short_window: int, long_window: int) \
         -> BytesIO:
+    """
+    Funkcja tworzy wykres ADX - wskaźnik trendu.
+    :param data: DataFrame - dane do analizy z yfinance
+    :param mode: dict - motyw wykresów
+    :param start: Timestamp - data rozpoczęcia wykresu
+    :param short_window: int - okres krótkiej średniej
+    :param long_window: int - okres długiej średniej
+    :return: BytesIO
+    """
     ema_short = trend.ema_indicator(data['Close'], window=short_window).dropna()
     ema_long = trend.ema_indicator(data['Close'], window=long_window).dropna()
 
