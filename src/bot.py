@@ -10,7 +10,7 @@ from telegram.constants import ParseMode
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters, CallbackQueryHandler
 
 from markups import *
-from stock_analysis import year_cycle_graph, rsi_so_price, adx, macd, price_atr, moving_averages
+from stock_analysis import year_cycle_graph, rsi_so_price, adx, macd, price_atr_ad, moving_averages
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -118,14 +118,14 @@ async def review(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     # wykres slupkowy oraz kanały ATR
     try:
-        chart = price_atr(data=data, mode=mode, start=start_date, atr_window=config['atr_window'],
-                          atr_ema_window=config['atr_ema_window'])
+        chart = price_atr_ad(data=data, mode=mode, start=start_date, atr_window=config['atr_window'],
+                             atr_ema_window=config['atr_ema_window'])
     except ValueError:
         err_msg = f"Błąd - sprawdź, czy spółka istnieje przez podany okres czasu."
         await context.bot.send_message(chat_id=chat, text=err_msg, parse_mode=ParseMode.MARKDOWN)
         return
     await context.bot.send_photo(chat_id=chat, photo=chart,
-                                 caption='Wykres słupkowy cen + kanały ATR')
+                                 caption='Wykres słupkowy cen + kanały ATR + wskaźnik akumulacji/dystrybucji')
 
     # srednie kroczace
     chart = moving_averages(data=data, mode=mode, start=start_date, short_window=config['ema_short'],
@@ -196,6 +196,9 @@ async def ihelp_func(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                 'stopniu wykupiony lub wyprzedany, więc z dużym prawdopodobieństwem można spodziewać się korekty lub '
                 'odwrócenia trendu.')
 
+    ad_help = ('*Wskaźnik A/D* - wkaźnik akumulacji/dystrybucji. Wskaźnik ten jest pomocny przy śledzeniu wolumenu. '
+               'Dywergencje między wskaźnikiem A/D, a ceną dają bardzo silne sygnały transakcyjne.')
+
     ma_help = ('*Średnie kroczące* - sygnał kupna pojawia się, gdy krótsza średnia przecina od dołu dłuższą średnią,'
                'natomiast sygnał sprzedaży - gdy krótsza średnia przecina dłuższą od góry. Czytelniejszym wykresem jest'
                ' wykres słupkowy, na którym łatwiej można zaobserwować odległość średnich od siebie.')
@@ -230,7 +233,7 @@ async def ihelp_func(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                  'że jeżeli ceny wyznaczyły nowy szczyt, a histogram nie, ale pomiędzy dwoma szczytami histogram nie '
                  'przeszedł przez linię 0, to nie możemy mówić o dywergencji.')
 
-    ihelp_text = f'{atr_help}\n\n{ma_help}\n\n{rsi_help}\n\n{so_help}\n\n{adx_help}\n\n{macd_help}'
+    ihelp_text = f'{atr_help}\n\n{ad_help}\n\n{ma_help}\n\n{rsi_help}\n\n{so_help}\n\n{adx_help}\n\n{macd_help}'
 
     try:
         help_w = update.message.text.split(" ")[1]
@@ -241,6 +244,8 @@ async def ihelp_func(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     match help_w:
         case 'atr':
             await context.bot.send_message(chat_id=chat, text=atr_help, parse_mode=ParseMode.MARKDOWN)
+        case 'a/d':
+            await context.bot.send_message(chat_id=chat, text=ad_help, parse_mode=ParseMode.MARKDOWN)
         case 'średnie':
             await context.bot.send_message(chat_id=chat, text=ma_help, parse_mode=ParseMode.MARKDOWN)
         case 'rsi':

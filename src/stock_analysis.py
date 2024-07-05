@@ -1,6 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-from ta import trend, momentum, volatility
+from ta import trend, momentum, volatility, volume
 from io import BytesIO
 import mplfinance as mpf
 
@@ -295,7 +295,7 @@ def macd(data: pd.DataFrame, mode: dict, start: pd.Timestamp, macd_slow: int, ma
     return buffer
 
 
-def price_atr(data: pd.DataFrame, mode: dict, start: pd.Timestamp, atr_ema_window: int, atr_window: int) -> BytesIO:
+def price_atr_ad(data: pd.DataFrame, mode: dict, start: pd.Timestamp, atr_ema_window: int, atr_window: int) -> BytesIO:
     """
     Funkcja tworzy wykres ceny z kanałami ATR.
     :param data: DataFrame - dane do analizy z yfinance
@@ -307,10 +307,12 @@ def price_atr(data: pd.DataFrame, mode: dict, start: pd.Timestamp, atr_ema_windo
     """
     ema = trend.ema_indicator(close=data['Close'], window=atr_ema_window).dropna()
     atr = volatility.average_true_range(high=data['High'], low=data['Low'], close=data['Close'], window=atr_window)
+    a_d = volume.acc_dist_index(high=data['High'], low=data['Low'], close=data['Close'], volume=data['Volume'])
 
     ema = ema.loc[start:]
     atr = atr.loc[start:]
     data = data.loc[start:]
+    a_d = a_d.loc[start:]
 
     # chart
     mc = mpf.make_marketcolors(up=mode['mc_up'], down=mode['mc_down'], edge=mode['mc_edge'], volume=mode['mc_volume'],
@@ -338,7 +340,8 @@ def price_atr(data: pd.DataFrame, mode: dict, start: pd.Timestamp, atr_ema_windo
                       mpf.make_addplot(ema + 3 * atr, color=mode['atr3'], alpha=mode['alpha']),
                       mpf.make_addplot(ema - atr, color=mode['atr1'], alpha=mode['alpha'], linestyle='--'),
                       mpf.make_addplot(ema - 2 * atr, color=mode['atr2'], alpha=mode['alpha'], linestyle='dashdot'),
-                      mpf.make_addplot(ema - 3 * atr, color=mode['atr3'], alpha=mode['alpha'])])
+                      mpf.make_addplot(ema - 3 * atr, color=mode['atr3'], alpha=mode['alpha']),
+                      mpf.make_addplot(a_d, panel='lower', color=mode['a_d'], secondary_y=True)])
 
     buffer.seek(0)
     plt.clf()
