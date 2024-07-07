@@ -5,9 +5,7 @@ RUN python -m  venv /venv && /venv/bin/pip install --upgrade pip && \
     /venv/bin/pip install -r requirements.txt && rm requirements.txt
 
 COPY ./src /app
-ARG BOT_TOKEN
-
-ENV BOT_TOKEN=${BOT_TOKEN}
+COPY ./.env /.env
 
 WORKDIR /app
 

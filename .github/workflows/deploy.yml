@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Budowa obrazu
-        run: docker build -t mkvskyx/stock-analyzer-bot .
+        run: docker build -t mkvskyx/stock-analyzer-bot --build-arg="BOT_TOKEN=${{ secrets.BOT_TOKEN }}" .
       - name: Test działania
         run: docker run -e CI=true mkvskyx/stock-analyzer-bot
       - name: Logowanie do DockerHub
