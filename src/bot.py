@@ -429,7 +429,7 @@ def manage_handlers(remove: bool = False) -> None:
 
 if __name__ == '__main__':
     load_dotenv()
-    token = os.environ["API_TOKEN"]
+    token = os.environ["BOT_TOKEN"]
 
     logging.basicConfig(
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -445,7 +445,7 @@ if __name__ == '__main__':
     mode = modes[config['mode']]
     settings_value = None
 
-    application = ApplicationBuilder().token(token).build()
+    application = ApplicationBuilder().token(token).read_timeout(120).build()
 
     start_handler = CommandHandler('start', start)
     review_handler = CommandHandler(['review', 'r'], review)
