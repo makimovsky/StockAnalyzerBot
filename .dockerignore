@@ -1,0 +1,11 @@
+# Git
+.git
+.github
+.gitignore
+
+# Docker
+.docker
+
+# Python
+src/__pycache__
+.venv

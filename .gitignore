@@ -1,0 +1,7 @@
+# Docker
+.docker
+
+# Python
+src/__pycache__
+.venv
+.env
