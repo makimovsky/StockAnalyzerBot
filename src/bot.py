@@ -26,18 +26,35 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     await context.bot.send_message(chat_id=update.effective_chat.id, text=text, parse_mode=ParseMode.MARKDOWN)
 
-    return
 
-
-async def review(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+def download_data(symbol: str, interval: str) -> pd.DataFrame | None:
     """
-    Funkcja obsługuje analize rynków finansowych.
+    Funkcja pobiera dane z Yahoo Finance.
+    :param symbol: Symbol poddawany analizie.
+    :param interval: Jednostka czasu.
+    :return: None
+    """
+    match interval:
+        case '1m' | '1d' | '1wk' | '1mo':
+            data = yf.download(symbol, period='max', interval=interval)
+        case '2m' | '5m' | '15m' | '30m':
+            data = yf.download(symbol, start=datetime.now() - pd.Timedelta('59d'), interval=interval)
+        case '60m':
+            data = yf.download(symbol, period='2y', interval=interval)
+        case _:
+            return None
+
+    return None if data.empty else data
+
+
+async def params_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Funkcja obsługuje sprawdzenie podanych przez użytkownika parametrów.
     :param update: Obiekt klasy Update, który reprezentuje bieżące zdarzenie w Telegramie.
     :param context: Obiekt klasy Context, który zawiera informacje kontekstowe dotyczące bieżącego stanu bota.
     :return: None
     """
     chat = update.effective_chat.id
-
     intervals = ['1m', '2m', '5m', '15m', '30m', '60m', '1d', '1wk', '1mo']
 
     periods = {
@@ -49,17 +66,6 @@ async def review(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         '2y': intervals[6:8],
         '5y': intervals[7:],
         '10y': intervals[8:],
-    }
-
-    periods_timedeltas = {
-        '1d': '1d',
-        '5d': '5d',
-        '1mo': '30d',
-        '6mo': '182d',
-        '1y': '365d',
-        '2y': '730d',
-        '5y': '1826d',
-        '10y': '3652d',
     }
 
     try:
@@ -74,7 +80,7 @@ async def review(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         period = "1y"
 
     if period not in periods:
-        period_keys = str(list(periods.keys())).replace("'", "")
+        period_keys = ', '.join(periods.keys())
         err_msg = f"Błąd - dostępne okresy czasu: {period_keys}"
         await context.bot.send_message(chat_id=chat, text=err_msg,
                                        parse_mode=ParseMode.MARKDOWN)
@@ -86,30 +92,36 @@ async def review(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         interval = periods.get(period)[0]
 
     if interval not in intervals:
-        interval_keys = str(intervals).replace("'", "")
+        interval_keys = ', '.join(intervals)
         err_msg = f"Błąd - dostępne interwały: {interval_keys}"
         await context.bot.send_message(chat_id=chat, text=err_msg, parse_mode=ParseMode.MARKDOWN)
         return
 
     if interval not in periods.get(period):
-        period_intervals = str(periods.get(period)).replace("'", "")
+        period_intervals = ', '.join(periods.get(period))
         err_msg = f"Błąd - dostępne interwały dla okresu {period}: {period_intervals}"
         await context.bot.send_message(chat_id=chat, text=err_msg, parse_mode=ParseMode.MARKDOWN)
         return
 
-    match interval:
-        case '1m' | '1d' | '1wk' | '1mo':
-            data = yf.download(symbol, period='max', interval=interval)
-        case '2m' | '5m' | '15m' | '30m':
-            data = yf.download(symbol, start=datetime.now() - pd.Timedelta('59d'), interval=interval)
-        case '60m':
-            data = yf.download(symbol, period='2y', interval=interval)
-        case _:
-            err_msg = f"Błąd!"
-            await context.bot.send_message(chat_id=chat, text=err_msg, parse_mode=ParseMode.MARKDOWN)
-            return
+    await review(context, chat, symbol, interval, period)
 
-    if data.empty:
+
+async def review(context: ContextTypes.DEFAULT_TYPE, chat: int,  symbol: str, interval: str, period: str) -> None:
+    """
+    Funkcja obsługuje wyświetlenie wykresów.
+    :param context: Obiekt klasy Context, który zawiera informacje kontekstowe dotyczące bieżącego stanu bota.
+    :param chat: ID chatu.
+    :param symbol: Symbol poddawany analizie.
+    :param interval: Jednostka czasu.
+    :param period: Okres danych do pobrania.
+    :return: None
+    """
+    periods_timedeltas = {k: f'{v}d' for k, v in [('1d', 1), ('5d', 5), ('1mo', 30), ('6mo', 182), ('1y', 365),
+                                                  ('2y', 730), ('5y', 1826), ('10y', 3652)]}
+
+    data = download_data(symbol, interval)
+
+    if data is None:
         err_msg = f"Błąd - Brak danych o *{symbol}*. Upewnij się, że podajesz istniejący symbol giełdowy."
         await context.bot.send_message(chat_id=chat, text=err_msg, parse_mode=ParseMode.MARKDOWN)
         return
@@ -140,7 +152,7 @@ async def review(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                                  parse_mode=ParseMode.MARKDOWN)
 
     # cykle roczne
-    if period in list(periods.keys())[6:]:
+    if period in ['5y', '10y']:
         chart = year_cycle_graph(data=data, mode=mode, start=start_date)
         await context.bot.send_photo(chat_id=chat, photo=chart,
                                      caption='Wykres możliwych cykli rocznych')
@@ -154,8 +166,6 @@ async def review(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                  macd_sign=config['macd_sign'])
     await context.bot.send_photo(chat_id=chat, photo=chart, caption='Wskaźnik MACD',
                                  reply_markup=main_markup)
-
-    return
 
 
 async def help_func(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -176,8 +186,6 @@ async def help_func(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                  '*Opis:*\n   Komenda służy do zmiany motywu\n   wyświetlanych wykresów.')
 
     await context.bot.send_message(chat_id=update.effective_chat.id, text=help_text, parse_mode=ParseMode.MARKDOWN)
-
-    return
 
 
 async def ihelp_func(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -260,8 +268,6 @@ async def ihelp_func(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             err_msg = f'Błąd - brak pomocy dla *{help_w}*. Aby uzyskać więcej pomocy wpisz /help.'
             await context.bot.send_message(chat_id=chat, text=err_msg, parse_mode=ParseMode.MARKDOWN)
 
-    return
-
 
 async def mode_func(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
@@ -291,8 +297,6 @@ async def mode_func(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         err_msg = f'Błąd - brak motywu o nazwie *{desired_mode}*. Aby uzyskać więcej pomocy wpisz /help.'
         await context.bot.send_message(chat_id=chat, text=err_msg, parse_mode=ParseMode.MARKDOWN)
-
-    return
 
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -350,8 +354,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             settings_value = sv
             await query.edit_message_text(text='Podaj okres')
 
-    return
-
 
 async def settings_manager(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
@@ -383,8 +385,6 @@ async def settings_manager(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode=ParseMode.MARKDOWN)
     manage_handlers()
 
-    return
-
 
 async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
@@ -395,8 +395,6 @@ async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     err_msg = 'Błąd. Aby uzyskać więcej pomocy wpisz \n/help.'
     await context.bot.send_message(chat_id=update.effective_chat.id, text=err_msg, parse_mode=ParseMode.MARKDOWN)
-
-    return
 
 
 def manage_handlers(remove: bool = False) -> None:
@@ -424,8 +422,6 @@ def manage_handlers(remove: bool = False) -> None:
     application.add_handler(mode_handler)
     application.add_handler(unknown_handler)
 
-    return
-
 
 if __name__ == '__main__':
     load_dotenv()
@@ -448,7 +444,7 @@ if __name__ == '__main__':
     application = ApplicationBuilder().token(token).read_timeout(120).build()
 
     start_handler = CommandHandler('start', start)
-    review_handler = CommandHandler(['review', 'r'], review)
+    review_handler = CommandHandler(['review', 'r'], params_check)
     help_handler = CommandHandler(['help', 'h'], help_func)
     ihelp_handler = CommandHandler(['ihelp', 'ih'], ihelp_func)
     mode_handler = CommandHandler(['mode', 'm'], mode_func)
