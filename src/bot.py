@@ -2,7 +2,6 @@ import logging
 import os
 from datetime import datetime
 
-import pandas as pd
 import yfinance as yf
 from dotenv import load_dotenv
 from telegram import Update
@@ -11,6 +10,7 @@ from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, Messa
 
 from markups import *
 from stock_analysis import year_cycle_graph, rsi_so_price, adx, macd, price_atr_ad, moving_averages
+from stock_rate import *
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -168,6 +168,45 @@ async def review(context: ContextTypes.DEFAULT_TYPE, chat: int,  symbol: str, in
                                  reply_markup=main_markup)
 
 
+async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat = update.effective_chat.id
+
+    try:
+        symbol = update.message.text.split(" ")[1]
+    except IndexError:
+        err_msg = f"Błąd - podaj symbol. Aby uzyskać więcej pomocy wpisz /help."
+        await context.bot.send_message(chat_id=chat, text=err_msg, parse_mode=ParseMode.MARKDOWN)
+        return
+
+    data_d = download_data(symbol, interval='1d')
+    data_w = download_data(symbol, interval='1wk')
+
+    if data_d is None or data_w is None:
+        err_msg = f"Błąd - Brak danych o *{symbol}*. Upewnij się, że podajesz istniejący symbol giełdowy."
+        await context.bot.send_message(chat_id=chat, text=err_msg, parse_mode=ParseMode.MARKDOWN)
+        return
+
+    rate_cond_1 = weekly_impulse_signal(data=data_w, ema_short=config['ema_short'], macd_slow=config['macd_slow'],
+                                        macd_fast=config['macd_fast'], macd_sign=config['macd_sign'])
+
+    rate_cond_2 = daily_value_zone(data=data_d, ema_short=config['ema_short'], ema_long=config['ema_long'])
+
+    rate_cond_3 = daily_rsi_level(data=data_d, rsi_window=config['rsi_window'])
+
+    rate_cond_4 = daily_so_level(data=data_d, so_window=config['so_window'],
+                                 so_smooth_window=config['so_smooth_window'])
+
+    rate_cond_5 = daily_adx_level(data=data_d, adx_window=config['adx_window'])
+
+    rate_sum = rate_cond_1 + rate_cond_2 + rate_cond_3 + rate_cond_4 + rate_cond_5
+
+    msg = (f'Ocena spółki *{symbol}*: {rate_sum}\n  Tygodniowy system impulse: {rate_cond_1}\n  Dzienna strefa wartości'
+           f': {rate_cond_2}\n  Dzienna strefa RSI: {rate_cond_3}\n  Dzienna strefa osc. stoch.: {rate_cond_4}\n  '
+           f'Dzienny ADX: {rate_cond_5}')
+
+    await context.bot.send_message(chat_id=chat, text=msg, parse_mode=ParseMode.MARKDOWN)
+
+
 async def help_func(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Funckja obsługuje pomoc.
@@ -179,11 +218,13 @@ async def help_func(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                  'wyświetlania danych\n   o podanym symbolu w podanym\n   okresie z podanym interwałem.\n\n  '
                  '*Parametry:*\n   _symbol_: Symbol giełdowy\n   _okres_: Okres danych\n   _interwał_: Interwał '
                  'danych\n\n  *Przykładowe użycie:*\n   /r aapl 5y 1wk - wyświetlenie danych o\n   AAPL z ostatnich 5 '
-                 'lat z jednostką osi\n   czasu 1 tydzień.\n\n\n */ihelp (/ih) [atr/średnie/rsi/os/\n               '
-                 '         /adx/macd]*\n\n  *Opis:*\n   Komenda służy do wyświetlenia\n   pomocy dotyczącej '
-                 'interpretacji\n   wysyłanych przez bota wykresów i\n   danych.\n\n\n */help (/h)*\n\n  *Opis:*\n   '
-                 'Komenda służy do wyświetlenia\n   dostępnych komend.\n\n\n */mode (/m) [light/dark/darkblue]*\n\n  '
-                 '*Opis:*\n   Komenda służy do zmiany motywu\n   wyświetlanych wykresów.')
+                 'lat z jednostką osi\n   czasu 1 tydzień.\n\n\n */rate [symbol]*\n\n  *Opis:*\n   Komenda służy do '
+                 'wyświetlania oceny\n   spółki o podanym symbolu.\n\n  *Parametry:*\n   _symbol_: Symbol giełdowy\n\n'
+                 '  *Przykładowe użycie:*\n   /rate aapl - wyświetlenie oceny AAPL.\n\n\n */ihelp (/ih) [atr/średnie/'
+                 'rsi/os/\n                        /adx/macd]*\n\n  *Opis:*\n   Komenda służy do wyświetlenia\n   '
+                 'pomocy dotyczącej interpretacji\n   wysyłanych przez bota wykresów i\n   danych.\n\n\n */help (/h)*'
+                 '\n\n  *Opis:*\n   Komenda służy do wyświetlenia\n   dostępnych komend.\n\n\n */mode (/m) [light/dark/'
+                 'darkblue]*\n\n  *Opis:*\n   Komenda służy do zmiany motywu\n   wyświetlanych wykresów.')
 
     await context.bot.send_message(chat_id=update.effective_chat.id, text=help_text, parse_mode=ParseMode.MARKDOWN)
 
@@ -410,6 +451,7 @@ def manage_handlers(remove: bool = False) -> None:
         application.remove_handler(ihelp_handler)
         application.remove_handler(mode_handler)
         application.remove_handler(unknown_handler)
+        application.remove_handler(rate_handler)
         application.add_handler(settings_handler)
 
         return
@@ -420,6 +462,7 @@ def manage_handlers(remove: bool = False) -> None:
     application.add_handler(help_handler)
     application.add_handler(ihelp_handler)
     application.add_handler(mode_handler)
+    application.add_handler(rate_handler)
     application.add_handler(unknown_handler)
 
 
@@ -448,6 +491,7 @@ if __name__ == '__main__':
     help_handler = CommandHandler(['help', 'h'], help_func)
     ihelp_handler = CommandHandler(['ihelp', 'ih'], ihelp_func)
     mode_handler = CommandHandler(['mode', 'm'], mode_func)
+    rate_handler = CommandHandler('rate', rate)
     callback_handler = CallbackQueryHandler(button)
     settings_handler = MessageHandler(filters.TEXT, settings_manager)
     unknown_handler = MessageHandler(filters.COMMAND, unknown)
