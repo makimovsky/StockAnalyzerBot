@@ -45,6 +45,19 @@ docker run twoj_tag
    czasu 1 tydzień.
 
 
+/rate [symbol]
+
+ Opis:
+   Komenda służy do wyświetlania oceny
+   spółki o podanym symbolu.
+
+ Parametry:
+   symbol: Symbol giełdowy
+
+ Przykładowe użycie:
+   /rate aapl - wyświetlenie oceny AAPL.
+
+
 /ihelp (/ih) [atr/średnie/rsi/os/adx/macd]
 
  Opis:
