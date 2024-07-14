@@ -132,40 +132,41 @@ async def review(context: ContextTypes.DEFAULT_TYPE, chat: int,  symbol: str, in
     try:
         chart = price_atr_ad(data=data, mode=mode, start=start_date, atr_window=config['atr_window'],
                              atr_ema_window=config['atr_ema_window'])
-    except ValueError:
-        err_msg = f"Błąd - sprawdź, czy spółka istnieje przez podany okres czasu."
+
+        await context.bot.send_photo(chat_id=chat, photo=chart,
+                                     caption='Wykres słupkowy cen + kanały ATR + wskaźnik akumulacji/dystrybucji')
+
+        # srednie kroczace
+        chart = moving_averages(data=data, mode=mode, start=start_date, short_window=config['ema_short'],
+                                long_window=config['ema_long'])
+        await context.bot.send_photo(chat_id=chat, photo=chart,
+                                     caption='Wykres średnich kroczących')
+
+        # RSI/SO/Cena
+        chart = rsi_so_price(data=data, mode=mode, start=start_date, rsi_window=config['rsi_window'],
+                             so_window=config['so_window'], so_smooth_window=config['so_smooth_window'])
+        await context.bot.send_photo(chat_id=chat, photo=chart, caption='RSI + Osc. stochastyczny',
+                                     parse_mode=ParseMode.MARKDOWN)
+
+        # cykle roczne
+        if period in ['5y', '10y']:
+            chart = year_cycle_graph(data=data, mode=mode, start=start_date)
+            await context.bot.send_photo(chat_id=chat, photo=chart,
+                                         caption='Wykres możliwych cykli rocznych')
+
+        # ADX
+        chart = adx(data=data, mode=mode, start=start_date, adx_window=config['adx_window'])
+        await context.bot.send_photo(chat_id=chat, photo=chart, caption='ADX - wskaźnik trendu')
+
+        # MACD
+        chart = macd(data=data, mode=mode, start=start_date, macd_slow=config['macd_slow'], macd_fast=config['macd_fast'],
+                     macd_sign=config['macd_sign'])
+        await context.bot.send_photo(chat_id=chat, photo=chart, caption='Wskaźnik MACD',
+                                     reply_markup=main_markup)
+    except (ValueError, IndexError):
+        err_msg = f"Błąd - brak wystarczających danych o *{symbol}*"
         await context.bot.send_message(chat_id=chat, text=err_msg, parse_mode=ParseMode.MARKDOWN)
         return
-    await context.bot.send_photo(chat_id=chat, photo=chart,
-                                 caption='Wykres słupkowy cen + kanały ATR + wskaźnik akumulacji/dystrybucji')
-
-    # srednie kroczace
-    chart = moving_averages(data=data, mode=mode, start=start_date, short_window=config['ema_short'],
-                            long_window=config['ema_long'])
-    await context.bot.send_photo(chat_id=chat, photo=chart,
-                                 caption='Wykres średnich kroczących')
-
-    # RSI/SO/Cena
-    chart = rsi_so_price(data=data, mode=mode, start=start_date, rsi_window=config['rsi_window'],
-                         so_window=config['so_window'], so_smooth_window=config['so_smooth_window'])
-    await context.bot.send_photo(chat_id=chat, photo=chart, caption='RSI + Osc. stochastyczny',
-                                 parse_mode=ParseMode.MARKDOWN)
-
-    # cykle roczne
-    if period in ['5y', '10y']:
-        chart = year_cycle_graph(data=data, mode=mode, start=start_date)
-        await context.bot.send_photo(chat_id=chat, photo=chart,
-                                     caption='Wykres możliwych cykli rocznych')
-
-    # ADX
-    chart = adx(data=data, mode=mode, start=start_date, adx_window=config['adx_window'])
-    await context.bot.send_photo(chat_id=chat, photo=chart, caption='ADX - wskaźnik trendu')
-
-    # MACD
-    chart = macd(data=data, mode=mode, start=start_date, macd_slow=config['macd_slow'], macd_fast=config['macd_fast'],
-                 macd_sign=config['macd_sign'])
-    await context.bot.send_photo(chat_id=chat, photo=chart, caption='Wskaźnik MACD',
-                                 reply_markup=main_markup)
 
 
 async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -186,19 +187,24 @@ async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await context.bot.send_message(chat_id=chat, text=err_msg, parse_mode=ParseMode.MARKDOWN)
         return
 
-    rate_cond_1 = weekly_impulse_signal(data=data_w, ema_short=config['ema_short'], macd_slow=config['macd_slow'],
-                                        macd_fast=config['macd_fast'], macd_sign=config['macd_sign'])
+    try:
+        rate_cond_1 = weekly_impulse_signal(data=data_w, ema_short=config['ema_short'], macd_slow=config['macd_slow'],
+                                            macd_fast=config['macd_fast'], macd_sign=config['macd_sign'])
 
-    rate_cond_2 = daily_value_zone(data=data_d, ema_short=config['ema_short'], ema_long=config['ema_long'])
+        rate_cond_2 = daily_value_zone(data=data_d, ema_short=config['ema_short'], ema_long=config['ema_long'])
 
-    rate_cond_3 = daily_rsi_level(data=data_d, rsi_window=config['rsi_window'])
+        rate_cond_3 = daily_rsi_level(data=data_d, rsi_window=config['rsi_window'])
 
-    rate_cond_4 = daily_so_level(data=data_d, so_window=config['so_window'],
-                                 so_smooth_window=config['so_smooth_window'])
+        rate_cond_4 = daily_so_level(data=data_d, so_window=config['so_window'],
+                                     so_smooth_window=config['so_smooth_window'])
 
-    rate_cond_5 = daily_adx_level(data=data_d, adx_window=config['adx_window'])
+        rate_cond_5 = daily_adx_level(data=data_d, adx_window=config['adx_window'])
 
-    rate_sum = rate_cond_1 + rate_cond_2 + rate_cond_3 + rate_cond_4 + rate_cond_5
+        rate_sum = rate_cond_1 + rate_cond_2 + rate_cond_3 + rate_cond_4 + rate_cond_5
+    except (ValueError, IndexError):
+        err_msg = f"Błąd - brak wystarczających danych o *{symbol}*"
+        await context.bot.send_message(chat_id=chat, text=err_msg, parse_mode=ParseMode.MARKDOWN)
+        return
 
     msg = (f'Ocena spółki *{symbol}*: {rate_sum}\n  Tygodniowy system impulse: {rate_cond_1}\n  Dzienna strefa wartości'
            f': {rate_cond_2}\n  Dzienna strefa RSI: {rate_cond_3}\n  Dzienna strefa osc. stoch.: {rate_cond_4}\n  '
