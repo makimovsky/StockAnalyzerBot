@@ -2,9 +2,9 @@ from ta import trend, momentum
 import pandas as pd
 
 
-def weekly_impulse_signal(data: pd.DataFrame, ema_short: int, macd_slow: int, macd_fast: int, macd_sign: int) -> int:
+def impulse_signal(data: pd.DataFrame, ema_short: int, macd_slow: int, macd_fast: int, macd_sign: int) -> int:
     """
-    Funkcja określa tygodniowy sygnał impulse.
+    Funkcja określa sygnał impulse.
     :param data: DataFrame - dane do analizy z yfinance
     :param ema_short: int - okres średniej
     :param macd_slow: int - długi okres MACD
@@ -35,7 +35,7 @@ def weekly_impulse_signal(data: pd.DataFrame, ema_short: int, macd_slow: int, ma
         return 2
 
 
-def daily_value_zone(data: pd.DataFrame, ema_short: int, ema_long: int) -> int:
+def value_zone(data: pd.DataFrame, ema_short: int, ema_long: int) -> int:
     """
     Funkcja sprawdza jak cena ma się do strefy wartości.
     :param data: DataFrame - dane do analizy z yfinance
@@ -55,7 +55,7 @@ def daily_value_zone(data: pd.DataFrame, ema_short: int, ema_long: int) -> int:
         return 0
 
 
-def daily_rsi_level(data: pd.DataFrame, rsi_window: int) -> int:
+def rsi_level(data: pd.DataFrame, rsi_window: int) -> int:
     """
     Funkcja sprawdza poziom wartości przy pomocy wskaźnika RSI.
     :param data: DataFrame - dane do analizy z yfinance
@@ -77,7 +77,7 @@ def daily_rsi_level(data: pd.DataFrame, rsi_window: int) -> int:
         return 0
 
 
-def daily_so_level(data: pd.DataFrame, so_window: int, so_smooth_window: int) -> int:
+def so_level(data: pd.DataFrame, so_window: int, so_smooth_window: int) -> int:
     """
     Funkcja sprawdza poziom wartości przy pomocy Oscylatora Stochastycznego.
     :param data: DataFrame - dane do analizy z yfinance
@@ -101,7 +101,7 @@ def daily_so_level(data: pd.DataFrame, so_window: int, so_smooth_window: int) ->
         return 0
 
 
-def daily_adx_level(data: pd.DataFrame, adx_window: int) -> int:
+def adx_level(data: pd.DataFrame, adx_window: int) -> int:
     """
     Funkcja sprawdza poziom wartości przy pomocy Oscylatora Stochastycznego.
     :param data: DataFrame - dane do analizy z yfinance

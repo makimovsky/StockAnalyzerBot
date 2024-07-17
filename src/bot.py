@@ -159,8 +159,8 @@ async def review(context: ContextTypes.DEFAULT_TYPE, chat: int,  symbol: str, in
         await context.bot.send_photo(chat_id=chat, photo=chart, caption='ADX - wskaźnik trendu')
 
         # MACD
-        chart = macd(data=data, mode=mode, start=start_date, macd_slow=config['macd_slow'], macd_fast=config['macd_fast'],
-                     macd_sign=config['macd_sign'])
+        chart = macd(data=data, mode=mode, start=start_date, macd_slow=config['macd_slow'],
+                     macd_fast=config['macd_fast'], macd_sign=config['macd_sign'])
         await context.bot.send_photo(chat_id=chat, photo=chart, caption='Wskaźnik MACD',
                                      reply_markup=main_markup)
     except (ValueError, IndexError):
@@ -188,17 +188,17 @@ async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     try:
-        rate_cond_1 = weekly_impulse_signal(data=data_w, ema_short=config['ema_short'], macd_slow=config['macd_slow'],
-                                            macd_fast=config['macd_fast'], macd_sign=config['macd_sign'])
+        rate_cond_1 = impulse_signal(data=data_w, ema_short=config['ema_short'], macd_slow=config['macd_slow'],
+                                     macd_fast=config['macd_fast'], macd_sign=config['macd_sign'])
 
-        rate_cond_2 = daily_value_zone(data=data_d, ema_short=config['ema_short'], ema_long=config['ema_long'])
+        rate_cond_2 = impulse_signal(data=data_d, ema_short=config['ema_short'], macd_slow=config['macd_slow'],
+                                     macd_fast=config['macd_fast'], macd_sign=config['macd_sign'])
 
-        rate_cond_3 = daily_rsi_level(data=data_d, rsi_window=config['rsi_window'])
+        rate_cond_3 = value_zone(data=data_d, ema_short=config['ema_short'], ema_long=config['ema_long'])
 
-        rate_cond_4 = daily_so_level(data=data_d, so_window=config['so_window'],
-                                     so_smooth_window=config['so_smooth_window'])
+        rate_cond_4 = rsi_level(data=data_d, rsi_window=config['rsi_window'])
 
-        rate_cond_5 = daily_adx_level(data=data_d, adx_window=config['adx_window'])
+        rate_cond_5 = adx_level(data=data_d, adx_window=config['adx_window'])
 
         rate_sum = rate_cond_1 + rate_cond_2 + rate_cond_3 + rate_cond_4 + rate_cond_5
     except (ValueError, IndexError):
@@ -206,9 +206,9 @@ async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await context.bot.send_message(chat_id=chat, text=err_msg, parse_mode=ParseMode.MARKDOWN)
         return
 
-    msg = (f'Ocena spółki *{symbol}*: {rate_sum}\n  Tygodniowy system impulse: {rate_cond_1}\n  Dzienna strefa wartości'
-           f': {rate_cond_2}\n  Dzienna strefa RSI: {rate_cond_3}\n  Dzienna strefa osc. stoch.: {rate_cond_4}\n  '
-           f'Dzienny ADX: {rate_cond_5}')
+    msg = (f'Ocena spółki *{symbol}*: {rate_sum}\n  Tygodniowy system impulse: {rate_cond_1}\n  Dzienny system impulse:'
+           f' {rate_cond_2}\n  Dzienna strefa wartości: {rate_cond_3}\n  Dzienna strefa RSI: {rate_cond_4}\n  Dzienny '
+           f'ADX: {rate_cond_5}')
 
     await context.bot.send_message(chat_id=chat, text=msg, parse_mode=ParseMode.MARKDOWN)
 
