@@ -1,82 +1,73 @@
 # ![StockAnalyzerBot](/docs/Stock_Analyzer_Bot.png)
 
-StockAnalyzerBot to Bot napisany w Pythonie, który pomaga analizować rynki finansowe.
+StockAnalyzerBot is a Python-based bot that helps analyze financial markets.
 
-## Uruchomienie
-### Uzyskanie tokenu bota
-Aby uzyskać token, należy napisać do [BotFather](https://t.me/BotFather) na Telegramie i postępować zgodnie z instrukcjami tworzenia Bota.
+## Getting Started
+### Obtaining the Bot Token
+To obtain a token, message [BotFather](https://t.me/BotFather) on Telegram and follow the instructions to create a bot.
 
-### Uruchomienie Bota (Docker z użyciem argumentu wywołania)
-Bota można uruchomić komendami:
+### Running the Bot (Docker with Command-Line Argument)
+You can start the bot using the following commands:
 ```
-docker build -t twoj_tag --build-arg="BOT_TOKEN=token_twojego_bota" .
-docker run twoj_tag
-```
-
-### Uruchomienie Bota (Docker z użyciem pliku .env)
-W katalogu domowym projektu należy utworzyć plik .env i uzupełnić go tokenem:
-```
-BOT_TOKEN=token_twojego_bota
-```
-Następnie Bota można uruchomić komendami:
-```
-docker build -t twoj_tag -f Dockerfile.dev .
-docker run twoj_tag
+docker build -t your_tag --build-arg="BOT_TOKEN=your_bot_token" .
+docker run your_tag
 ```
 
-## Używanie Bota
-### Dostępne komendy:
+### Running the Bot (Docker with .env File)
+Create a `.env` file in the project's root directory and add your bot token:
 ```
-/review (/r) [symbol] [okres] [interwał]
+BOT_TOKEN=your_bot_token
+```
+Then, start the bot with:
+```
+docker build -t your_tag -f Dockerfile.dev .
+docker run your_tag
+```
 
- Opis:
-   Komenda służy do wyświetlania danych
-   o podanym symbolu w podanym
-   okresie z podanym interwałem.
+## Using the Bot
+### Available Commands:
+```
+/review (/r) [symbol] [period] [interval]
 
- Parametry:
-   symbol: Symbol giełdowy
-   okres: Okres danych
-   interwał: Interwał danych
+ Description:
+   Displays data for the given symbol over the specified period with the chosen interval.
 
- Przykładowe użycie:
-   /r aapl 5y 1wk - wyświetlenie danych o
-   AAPL z ostatnich 5 lat z jednostką osi
-   czasu 1 tydzień.
+ Parameters:
+   symbol: Stock symbol
+   period: Data period
+   interval: Data interval
+
+ Example Usage:
+   /r aapl 5y 1wk - Displays data for AAPL for the last 5 years with a 1-week time unit.
 
 
 /rate [symbol]
 
- Opis:
-   Komenda służy do wyświetlania oceny
-   spółki o podanym symbolu.
+ Description:
+   Displays the rating of the company with the given symbol.
 
- Parametry:
-   symbol: Symbol giełdowy
+ Parameters:
+   symbol: Stock symbol
 
- Przykładowe użycie:
-   /rate aapl - wyświetlenie oceny AAPL.
+ Example Usage:
+   /rate aapl - Displays the rating for AAPL.
 
 
-/ihelp (/ih) [atr/średnie/rsi/os/adx/macd]
+/ihelp (/ih) [atr/averages/rsi/os/adx/macd]
 
- Opis:
-   Komenda służy do wyświetlenia
-   pomocy dotyczącej interpretacji
-   wysyłanych przez bota wykresów i
-   danych.
+ Description:
+   Provides guidance on interpreting charts and data sent by the bot.
 
 
 /help (/h)
 
- Opis:
-   Komenda służy do wyświetlenia
-   dostępnych komend.
+ Description:
+   Displays the list of available commands.
 
 
 /mode (/m) [light/dark/darkblue]
 
- Opis:
-   Komenda służy do zmiany motywu
-   wyświetlanych wykresów.
+ Description:
+   Changes the theme of displayed charts.
 ```
+
